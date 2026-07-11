@@ -1,0 +1,33 @@
+{
+  "name": "regex-tab-dedupe-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm run typecheck && npm run validate:logo && vite build && npm run validate:dist",
+    "dev": "vite build --watch",
+    "logo": "node scripts/generate-logo.mjs && npm run validate:logo",
+    "package": "npm run verify:release && node scripts/package.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "npm run build && playwright test",
+    "typecheck": "tsc --noEmit",
+    "validate:dist": "node scripts/validate-dist.mjs",
+    "validate:logo": "node scripts/validate-logo.mjs",
+    "verify:release": "npm run test && npm run test:e2e && node scripts/check-package-determinism.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.0",
+    "@types/chrome": "0.2.2",
+    "@types/node": "26.1.2",
+    "fflate": "0.8.3",
+    "jsdom": "30.0.1",
+    "pngjs": "7.0.0",
+    "typescript": "7.0.2",
+    "vite": "8.1.5",
+    "vitest": "4.1.10"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
