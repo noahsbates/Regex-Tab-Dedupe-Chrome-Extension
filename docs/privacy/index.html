@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Privacy policy for the Regex Tab Dedupe Chrome extension."
+    />
+    <title>Privacy policy | Regex Tab Dedupe</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="../" aria-label="Regex Tab Dedupe home">
+        <span class="brand-mark" aria-hidden="true">
+          <span class="brand-window"></span>
+        </span>
+        <span>Regex Tab Dedupe</span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a aria-current="page" href="./">Privacy</a>
+        <a
+          href="https://github.com/noahsbates/Regex-Tab-Dedupe-Chrome-Extension"
+          >Source</a
+        >
+      </nav>
+    </header>
+
+    <main class="policy-layout">
+      <aside class="policy-summary">
+        <p class="eyebrow">Privacy policy</p>
+        <h1>What the extension reads and why.</h1>
+        <p>Effective July 29, 2026</p>
+        <nav aria-label="Privacy policy contents">
+          <a href="#overview">Overview</a>
+          <a href="#data">Data handled</a>
+          <a href="#use">How data is used</a>
+          <a href="#storage">Storage and transfers</a>
+          <a href="#retention">Retention and deletion</a>
+          <a href="#permissions">Permissions</a>
+          <a href="#limited-use">Limited Use</a>
+          <a href="#contact">Contact</a>
+        </nav>
+      </aside>
+
+      <article class="policy">
+        <section id="overview">
+          <h2>Overview</h2>
+          <p>
+            Regex Tab Dedupe is a Chrome extension that detects newly opened
+            duplicate tabs using regular-expression rules created or selected
+            by the user. It handles tab URLs because URL comparison is the
+            extension's only purpose.
+          </p>
+          <p>
+            All duplicate matching happens inside the browser. The developer
+            does not operate a server for this extension and does not receive
+            browsing activity, rule settings, or usage data from it.
+          </p>
+        </section>
+
+        <section id="data">
+          <h2>Data handled</h2>
+          <h3>Web browsing activity</h3>
+          <p>
+            The extension reads the complete HTTP or HTTPS URL, including its
+            path, query, and fragment, plus the tab identifier, window
+            identifier, loading state, creation order, and regular or
+            incognito context of browser tabs. It ignores non-HTTP(S) URLs.
+            The extension does not separately access page contents, cookies,
+            form fields, passwords, authentication APIs, or network request
+            bodies. If a site places any such text in a URL, the extension
+            processes it as part of that complete URL.
+          </p>
+          <h3>Rule settings</h3>
+          <p>
+            The extension stores the rule name, regular-expression pattern,
+            flags, enabled state, order, internal rule identifier, and document
+            revision identifier for rules the user saves. A rule can contain
+            text or a domain entered by the user.
+          </p>
+          <h3>Temporary operation data</h3>
+          <p>
+            For newly created tabs, the extension temporarily stores the tab
+            identifier, creation order, and observed URL. The URL lets
+            duplicate processing recover if Chrome stops and restarts the
+            extension's background service worker. The tab identifier and
+            creation order also let the extension rank that tab against future
+            new tabs. If Chrome replaces a tab, the record follows the
+            replacement tab.
+          </p>
+          <h3>Data not collected</h3>
+          <p>
+            The extension has no analytics, advertising, tracking pixels,
+            accounts, telemetry, or crash-reporting service. It does not
+            collect personal information for the developer.
+          </p>
+        </section>
+
+        <section id="use">
+          <h2>How data is used</h2>
+          <p>The extension uses this data only to:</p>
+          <ul>
+            <li>compare tab URLs with the user's enabled rules;</li>
+            <li>identify and rank older matching tabs;</li>
+            <li>focus the oldest matching tab and close only the new one;</li>
+            <li>restore unfinished duplicate checks after worker inactivity;</li>
+            <li>save rules and, when Chrome Sync is enabled, sync them across the user's Chrome browsers.</li>
+          </ul>
+          <p>
+            The developer does not use this data for advertising, profiling,
+            credit decisions, marketing, analytics, or any unrelated purpose.
+          </p>
+        </section>
+
+        <section id="storage">
+          <h2>Storage and transfers</h2>
+          <p>
+            Tab URLs, unfinished candidate records, and creation-order records
+            are stored only in <code>chrome.storage.session</code>. They are not
+            placed in Chrome Sync and are not sent to the developer or a third
+            party.
+          </p>
+          <p>
+            Saved rules are written to <code>chrome.storage.local</code> as a
+            local backup and to <code>chrome.storage.sync</code>. Chrome Sync
+            may transmit those rule settings through Google's systems under
+            the user's Chrome Sync settings and Google's privacy terms. The
+            developer cannot access that synced copy.
+          </p>
+          <p>
+            The popup contains links to GitHub for support and to the Chrome
+            Web Store for ratings. Those sites receive normal browser requests
+            only after the user chooses a link. The extension does not attach
+            a tab URL, saved rule, or other extension data to those links.
+          </p>
+          <p>
+            The extension contains no remote code and sends no data to a
+            developer-controlled service.
+          </p>
+        </section>
+
+        <section id="retention">
+          <h2>Retention and deletion</h2>
+          <p>
+            The extension removes a temporary candidate URL when its check
+            finishes or the related tab closes. If Chrome replaces a tab before
+            the check finishes, the candidate record follows the replacement.
+            The tab identifier and creation order remain in session storage for
+            the observed tab's lifetime so future new tabs can be ranked against
+            it. Chrome clears session storage when the browser restarts or the
+            extension is disabled, reloaded, or updated.
+          </p>
+          <p>
+            Saved rules remain until the user edits or deletes them, clears the
+            extension's storage, or uninstalls the extension. Copies managed by
+            Chrome Sync are also subject to the user's Chrome Sync controls.
+          </p>
+          <p>
+            To remove an individual rule, open the extension, choose Delete,
+            confirm the deletion, and save. To remove all locally held data,
+            uninstall the extension in <code>chrome://extensions</code>. The
+            user can manage synced data through Chrome's Sync settings.
+          </p>
+        </section>
+
+        <section id="permissions">
+          <h2>Chrome permissions</h2>
+          <dl>
+            <div>
+              <dt><code>tabs</code></dt>
+              <dd>
+                Reads tab URLs and state, focuses the older matching tab, and
+                closes the newly opened duplicate.
+              </dd>
+            </div>
+            <div>
+              <dt><code>webNavigation</code></dt>
+              <dd>
+                Receives the destination URL early enough to prevent a known
+                duplicate from finishing its load.
+              </dd>
+            </div>
+            <div>
+              <dt><code>storage</code></dt>
+              <dd>
+                Stores saved rule settings, a local backup, temporary candidate
+                URLs, and tab creation-order records.
+              </dd>
+            </div>
+            <div>
+              <dt><code>alarms</code></dt>
+              <dd>
+                Schedules a one-time retry when a temporary Chrome API failure
+                prevents a safe duplicate check.
+              </dd>
+            </div>
+          </dl>
+          <p>
+            The extension requests no host permissions, does not inject content
+            scripts, and does not use the <code>activeTab</code> permission.
+          </p>
+        </section>
+
+        <section id="limited-use">
+          <h2>Chrome Web Store Limited Use</h2>
+          <p>
+            Regex Tab Dedupe's use and transfer of information received from
+            Google APIs complies with the Chrome Web Store User Data Policy,
+            including the Limited Use requirements.
+          </p>
+          <p>
+            The extension uses browsing activity only to provide its visible
+            duplicate-tab feature. It does not sell or transfer user data, use
+            it for personalized advertising, or allow humans to read it.
+          </p>
+        </section>
+
+        <section id="changes">
+          <h2>Changes to this policy</h2>
+          <p>
+            Material changes will be posted on this page with a new effective
+            date. Any extension update that changes data handling will also
+            update the Chrome Web Store privacy disclosures.
+          </p>
+        </section>
+
+        <section id="contact">
+          <h2>Contact</h2>
+          <p>
+            Questions about this policy can be submitted through the project's
+            <a
+              href="https://github.com/noahsbates/Regex-Tab-Dedupe-Chrome-Extension/issues/new"
+              >GitHub issue tracker</a
+            >.
+          </p>
+        </section>
+      </article>
+    </main>
+
+    <footer>
+      <span>Regex Tab Dedupe</span>
+      <div>
+        <a href="../">Home</a>
+        <a
+          href="https://github.com/noahsbates/Regex-Tab-Dedupe-Chrome-Extension/issues"
+          >Support</a
+        >
+      </div>
+    </footer>
+  </body>
+</html>
