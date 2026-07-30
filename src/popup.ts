@@ -238,11 +238,13 @@ export async function mountPopup(input: {
       emptyTitle.textContent = "No rules yet";
       const emptyCopy = document.createElement("p");
       emptyCopy.textContent =
-        "Create your own regex rule or start with a ready-made preset.";
+        "Start with a ready-made preset or write your own regex rule.";
       const actions = element("div", "empty-actions");
       actions.append(
-        actionButton("Create first rule", beginAdd, { className: "primary" }),
-        actionButton("Browse presets", () => selectView("presets")),
+        actionButton("Choose a preset", () => selectView("presets"), {
+          className: "primary",
+        }),
+        actionButton("Write your own", beginAdd),
       );
       empty.append(icon, emptyTitle, emptyCopy, actions);
       list.append(empty);
@@ -553,12 +555,12 @@ export async function mountPopup(input: {
     if (view === nextView) {
       return;
     }
-    if (view === "rules" && editor.kind !== "none") {
-      const draft = readDraft(editor.draft.id);
-      if (draft === null) {
-        return;
-      }
-      editor = { ...editor, draft };
+    // Opening Presets discards an in-progress draft. Carrying it over would
+    // leave every "Use preset" button disabled with nothing on screen to
+    // explain why.
+    if (nextView === "presets" && editor.kind !== "none") {
+      editor = { kind: "none" };
+      issues = [];
     }
     view = nextView;
     render();
