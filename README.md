@@ -73,18 +73,3 @@ npm run logo          # regenerate the committed supersampled logo
 ```
 
 The production build is in `dist/`. Packaging creates `regex-tab-dedupe-extension.zip` at the repository root.
-
-## Privacy site
-
-The project site and privacy policy live in `docs/`. To publish them with
-GitHub Pages, choose **Deploy from a branch**, `main`, and `/docs` under the
-repository's **Settings > Pages**.
-
-- <https://noahsbates.github.io/Regex-Tab-Dedupe-Chrome-Extension/>
-- <https://noahsbates.github.io/Regex-Tab-Dedupe-Chrome-Extension/privacy/>
-
-GitHub must allow Pages for the private repository. Otherwise, publish `docs/`
-on another public static host. Test the privacy-policy URL while signed out
-before adding it to the Chrome Web Store.
-
-The matching and survivor selection code is independent of Chrome APIs. The background coordinator owns browser events and session recovery; the popup owns rule editing and sync feedback.
