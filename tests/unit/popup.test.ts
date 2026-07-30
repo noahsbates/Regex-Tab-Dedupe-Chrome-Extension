@@ -269,6 +269,73 @@ describe("popup", () => {
     expect(document.querySelector(".sync-badge")).toBeNull();
   });
 
+  it("leads the empty state with a dark preset action and a plain fallback", async () => {
+    await mountPopup({
+      root: document.querySelector("#app"),
+      settings: new FakeSettings(),
+      createId: () => "new-rule",
+      subscribe: () => () => undefined,
+    });
+
+    expect(document.body.textContent).toContain("No rules yet");
+    const actions = [
+      ...document.querySelectorAll<HTMLButtonElement>(".empty-actions button"),
+    ];
+    expect(actions.map((action) => action.textContent)).toEqual([
+      "Choose a preset",
+      "Write your own",
+    ]);
+    // `primary` is the dark green treatment, so the preset action must own it.
+    expect(actions[0]?.className).toContain("primary");
+    expect(actions[1]?.className).not.toContain("primary");
+
+    actions[0]?.click();
+    expect(button("PRESETS").getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("writes a first rule from the empty state fallback", async () => {
+    await mountPopup({
+      root: document.querySelector("#app"),
+      settings: new FakeSettings(),
+      createId: () => "new-rule",
+      subscribe: () => () => undefined,
+    });
+
+    button("Write your own").click();
+
+    expect(button("RULES").getAttribute("aria-selected")).toBe("true");
+    expect(document.body.textContent).toContain("Add rule");
+    expect(input("pattern").value).toBe("");
+  });
+
+  it("discards an open draft when Presets opens so presets stay usable", async () => {
+    await mountPopup({
+      root: document.querySelector("#app"),
+      settings: new FakeSettings(),
+      createId: () => "new-rule",
+      subscribe: () => () => undefined,
+    });
+
+    button("Write your own").click();
+    input("pattern").value = "^https://example\\.com/(.*)$";
+    input("name").value = "Half-written rule";
+
+    button("PRESETS").click();
+
+    // Every preset stayed clickable instead of graying out behind the draft.
+    const presetButtons = [
+      ...document.querySelectorAll<HTMLButtonElement>("button.use-preset"),
+    ];
+    expect(presetButtons.length).toBeGreaterThan(0);
+    expect(presetButtons.every((preset) => !preset.disabled)).toBe(true);
+
+    button("Use Same YouTube video preset").click();
+
+    // The discarded draft did not bleed into the preset draft.
+    expect(input("name").value).toBe("Same YouTube video");
+    expect(input("pattern").value).not.toContain("example");
+  });
+
   it("keeps the editor open when every save fails", async () => {
     const settings = new FakeSettings();
     settings.nextSave = {

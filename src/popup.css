@@ -1,4 +1,10 @@
 :root {
+  /*
+   * Scales the whole popup by 20%. Every length below stays at its unscaled
+   * design value so there is one place to change the factor. This is a
+   * Chromium-only surface, so `zoom` is safe.
+   */
+  zoom: 1.2;
   color: #282c27;
   background: #e7e7de;
   font-family:
@@ -27,9 +33,16 @@
 html,
 body,
 #app {
+  /*
+   * Rendered size is these values times the 20% zoom above: 552x600. Chromium
+   * caps an extension popup at 800x600, so the height is 500 rather than a
+   * scaled 560 (which would render 672, get clamped to 600, and clip the
+   * footer because body sets overflow: hidden). `.popup-content` scrolls, so
+   * the shorter frame costs visible rows, not reachable content.
+   */
   width: 460px;
-  height: 560px;
-  max-height: 560px;
+  height: 500px;
+  max-height: 500px;
   margin: 0;
 }
 
