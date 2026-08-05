@@ -42,12 +42,14 @@ const rules: readonly RegexRule[] = [
   },
 ];
 
-function repository(input: {
-  sync?: MemoryStorage;
-  local?: MemoryStorage;
-  writeIds?: readonly string[];
-  quotaBytes?: number;
-} = {}) {
+function repository(
+  input: {
+    sync?: MemoryStorage;
+    local?: MemoryStorage;
+    writeIds?: readonly string[];
+    quotaBytes?: number;
+  } = {},
+) {
   const sync = input.sync ?? new MemoryStorage();
   const local = input.local ?? new MemoryStorage();
   const ids = [...(input.writeIds ?? ["write-1", "write-2"])];

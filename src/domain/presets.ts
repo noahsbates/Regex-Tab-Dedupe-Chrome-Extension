@@ -1,4 +1,4 @@
-import type { ClosePolicy } from "./domain/rules";
+import { type ClosePolicy, closePoliciesEqual, type RegexRule } from "./rules";
 
 export type PresetCategory =
   | "Developer"
@@ -22,6 +22,18 @@ export interface RulePreset {
   readonly name: string;
   readonly pattern: string;
   readonly closePolicy: ClosePolicy;
+}
+
+export function isPresetInstalled(
+  rules: readonly RegexRule[],
+  preset: RulePreset,
+): boolean {
+  return rules.some(
+    (rule) =>
+      rule.pattern === preset.pattern &&
+      rule.flags === preset.flags &&
+      closePoliciesEqual(rule.closePolicy, preset.closePolicy),
+  );
 }
 
 export const RULE_PRESETS: readonly RulePreset[] = [
@@ -66,7 +78,7 @@ export const RULE_PRESETS: readonly RulePreset[] = [
     category: "Everyday",
     name: "Same URL without query or fragment",
     description: "Ignore tracking parameters, searches, and page anchors.",
-    pattern: String.raw`^(https?://[^?#]+)`,
+    pattern: "^(https?://[^?#]+)",
     flags: "i",
     closePolicy: { kind: "close-new" },
   },

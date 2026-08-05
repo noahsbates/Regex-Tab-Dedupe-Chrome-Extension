@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { createCoordinator, type BrowserPort } from "../../src/background/coordinator";
+import {
+  type BrowserPort,
+  createCoordinator,
+} from "../../src/background/coordinator";
 import { createSessionRepository } from "../../src/background/session";
 import type { TabSnapshot } from "../../src/domain/reconcile";
-import {
-  createRuleId,
-  type RuleDocument,
-} from "../../src/domain/rules";
-import type { LoadedSettings, SettingsRepository } from "../../src/storage/settings";
+import { createRuleId, type RuleDocument } from "../../src/domain/rules";
+import type {
+  LoadedSettings,
+  SettingsRepository,
+} from "../../src/storage/settings";
 import type { ValueStorageArea } from "../../src/storage/value-storage";
 
 class MemoryStorage implements ValueStorageArea {
@@ -113,9 +116,7 @@ function tab(
   };
 }
 
-function setup(
-  settingsOverride: Pick<SettingsRepository, "load"> = settings,
-) {
+function setup(settingsOverride: Pick<SettingsRepository, "load"> = settings) {
   const browser = new FakeBrowser();
   const retry = new FakeRetryScheduler();
   const session = createSessionRepository({ storage: new MemoryStorage() });
@@ -315,9 +316,7 @@ describe("new-tab coordinator", () => {
       tab(20, "https://example.com/docs#comment-12", "complete"),
     );
     browser.getTabOverride = (tabId, current) =>
-      tabId === 20
-        ? tab(20, "https://example.com/docs", "complete")
-        : current;
+      tabId === 20 ? tab(20, "https://example.com/docs", "complete") : current;
 
     await coordinator.onCreated({ tab: browser.tabs.get(20) });
 

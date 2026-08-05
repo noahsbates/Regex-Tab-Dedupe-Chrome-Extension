@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  type ClosePolicy,
   classifyUrl,
   createRuleId,
   isEligibleUrl,
   parseRuleDocument,
+  type RegexRule,
   resolveCloseAction,
   serializeRuleDocument,
   validateRuleSet,
-  type ClosePolicy,
-  type RegexRule,
 } from "../../src/domain/rules";
 
 function rule(

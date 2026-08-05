@@ -3,7 +3,7 @@ import {
   decideDuplicatePair,
   type TabSnapshot,
 } from "../domain/reconcile";
-import { isEligibleUrl, type CloseAction } from "../domain/rules";
+import { type CloseAction, isEligibleUrl } from "../domain/rules";
 import type { SettingsRepository } from "../storage/settings";
 import type { SessionRepository, SessionState } from "./session";
 
@@ -195,9 +195,7 @@ async function reconcile(input: {
           await input.browser.closeTab(freshCandidate.id);
           closed = true;
           break;
-        } catch {
-          continue;
-        }
+        } catch {}
       }
 
       if (closed) {
@@ -296,7 +294,9 @@ function firstEligibleUrl(
 function pairStillSupportsAction(input: {
   readonly candidate: TabSnapshot;
   readonly existing: TabSnapshot;
-  readonly rules: Awaited<ReturnType<SettingsRepository["load"]>>["document"]["rules"];
+  readonly rules: Awaited<
+    ReturnType<SettingsRepository["load"]>
+  >["document"]["rules"];
   readonly expected: CloseAction;
 }): boolean {
   if (input.candidate.incognito !== input.existing.incognito) {

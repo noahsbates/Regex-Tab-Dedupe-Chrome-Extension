@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  decideCandidate,
   type BirthRecord,
   type CandidateRecord,
+  decideCandidate,
   type TabSnapshot,
 } from "../../src/domain/reconcile";
 import { createRuleId, type RegexRule } from "../../src/domain/rules";

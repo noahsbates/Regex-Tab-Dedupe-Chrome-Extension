@@ -1,8 +1,8 @@
-import { expect, test, chromium, type BrowserContext } from "@playwright/test";
-import { createServer, type Server } from "node:http";
 import { mkdtemp, rm } from "node:fs/promises";
+import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { type BrowserContext, chromium, expect, test } from "@playwright/test";
 
 test("a rule can keep either the old or new duplicate tab", async () => {
   const extensionPath = resolve(import.meta.dirname, "../../dist");
@@ -48,10 +48,9 @@ test("a rule can keep either the old or new duplicate tab", async () => {
       .catch(() => null);
 
     await expect
-      .poll(
-        () => context?.pages().some((page) => page === second) ?? true,
-        { timeout: 1_500 },
-      )
+      .poll(() => context?.pages().some((page) => page === second) ?? true, {
+        timeout: 1_500,
+      })
       .toBe(false);
     await secondNavigation;
     await expect(first).toHaveURL(`${server.origin}/same-page?source=first`);
@@ -74,18 +73,15 @@ test("a rule can keep either the old or new duplicate tab", async () => {
         name: "Close old tab instead",
       })
       .check();
-    await popup
-      .locator('[name="newTabPattern"]')
-      .fill(String.raw`source=third$`);
+    await popup.locator('[name="newTabPattern"]').fill("source=third$");
     await popup.getByRole("button", { name: "Save rule" }).click();
 
     const third = await context.newPage();
     await third.goto(`${server.origin}/same-page?source=third`);
     await expect
-      .poll(
-        () => context?.pages().some((page) => page === first) ?? true,
-        { timeout: 1_500 },
-      )
+      .poll(() => context?.pages().some((page) => page === first) ?? true, {
+        timeout: 1_500,
+      })
       .toBe(false);
     await expect(third).toHaveURL(`${server.origin}/same-page?source=third`);
 
@@ -142,10 +138,9 @@ test("the GitHub comment preset replaces a plain PR tab only for comment links",
     );
 
     await expect
-      .poll(
-        () => context?.pages().some((page) => page === oldPr) ?? true,
-        { timeout: 1_500 },
-      )
+      .poll(() => context?.pages().some((page) => page === oldPr) ?? true, {
+        timeout: 1_500,
+      })
       .toBe(false);
     await expect(comment).toHaveURL(
       "https://github.com/acme/widgets/pull/42#discussion_r3717711453",
@@ -157,7 +152,8 @@ test("the GitHub comment preset replaces a plain PR tab only for comment links",
       .catch(() => null);
     await expect
       .poll(
-        () => context?.pages().some((page) => page === ordinaryDuplicate) ?? true,
+        () =>
+          context?.pages().some((page) => page === ordinaryDuplicate) ?? true,
         { timeout: 1_500 },
       )
       .toBe(false);
@@ -191,13 +187,14 @@ async function startServer(): Promise<{
   }
   return {
     origin: `http://127.0.0.1:${address.port}`,
-    close: () => new Promise((resolveClose) => server.close(() => resolveClose())),
+    close: () =>
+      new Promise((resolveClose) => server.close(() => resolveClose())),
   };
 }
 
 function sendTestPage(response: import("node:http").ServerResponse): void {
-    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    response.end("<!doctype html><title>Test</title><h1>Test page</h1>");
+  response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+  response.end("<!doctype html><title>Test</title><h1>Test page</h1>");
 }
 
 function listen(server: Server): Promise<void> {

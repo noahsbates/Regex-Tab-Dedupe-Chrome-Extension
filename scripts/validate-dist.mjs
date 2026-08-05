@@ -1,4 +1,4 @@
-import { access, readFile, readdir } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "../dist");
@@ -13,31 +13,42 @@ for (const file of requiredFiles) {
   await access(resolve(root, file));
 }
 
-const manifest = JSON.parse(await readFile(resolve(root, "manifest.json"), "utf8"));
+const manifest = JSON.parse(
+  await readFile(resolve(root, "manifest.json"), "utf8"),
+);
 assert(manifest.manifest_version === 3, "manifest_version must be 3");
 assert(
   JSON.stringify([...manifest.permissions].sort()) ===
     JSON.stringify(["alarms", "storage", "tabs", "webNavigation"]),
   "permissions must be alarms, storage, tabs, and webNavigation",
 );
-assert(manifest.host_permissions === undefined, "host permissions are forbidden");
+assert(
+  manifest.host_permissions === undefined,
+  "host permissions are forbidden",
+);
 assert(
   manifest.background?.service_worker === "assets/background.js",
   "background service worker path is wrong",
 );
+assert(manifest.action?.default_popup === "popup.html", "popup path is wrong");
 assert(
-  manifest.action?.default_popup === "popup.html",
-  "popup path is wrong",
+  manifest.action?.default_icon === "logo.png",
+  "action logo path is wrong",
 );
-assert(manifest.action?.default_icon === "logo.png", "action logo path is wrong");
 assert(
   JSON.stringify(manifest.icons) === JSON.stringify({ 128: "logo.png" }),
   "manifest must reference only the canonical 128px logo",
 );
 
 const popup = await readFile(resolve(root, "popup.html"), "utf8");
-assert(!/<script[^>]+src=["']https?:/i.test(popup), "remote scripts are forbidden");
-assert(!/<link[^>]+href=["']https?:/i.test(popup), "remote styles are forbidden");
+assert(
+  !/<script[^>]+src=["']https?:/i.test(popup),
+  "remote scripts are forbidden",
+);
+assert(
+  !/<link[^>]+href=["']https?:/i.test(popup),
+  "remote styles are forbidden",
+);
 
 const allFiles = await walk(root);
 const relativeFiles = allFiles.map((file) =>
@@ -47,7 +58,7 @@ const allowedFiles = [
   /^assets\/background\.js$/,
   /^assets\/popup\.js$/,
   /^assets\/popup-[A-Za-z0-9_-]+\.css$/,
-  /^assets\/value-storage-[A-Za-z0-9_-]+\.js$/,
+  /^assets\/chrome-[A-Za-z0-9_-]+\.js$/,
   /^logo\.png$/,
   /^manifest\.json$/,
   /^popup\.html$/,
@@ -69,7 +80,9 @@ assert(
   "production source maps must not ship",
 );
 
-console.log(`Validated ${allFiles.length} allowlisted extension files in dist/.`);
+console.log(
+  `Validated ${allFiles.length} allowlisted extension files in dist/.`,
+);
 
 async function walk(directory) {
   const entries = await readdir(directory, { withFileTypes: true });

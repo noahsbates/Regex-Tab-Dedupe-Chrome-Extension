@@ -1,11 +1,11 @@
 import {
+  type CloseAction,
   classifyUrl,
+  type DuplicateKey,
   duplicateKeysEqual,
   isEligibleUrl,
-  resolveCloseAction,
-  type CloseAction,
-  type DuplicateKey,
   type RegexRule,
+  resolveCloseAction,
 } from "./rules";
 
 interface CandidateBase {
@@ -94,7 +94,9 @@ export function decideCandidate(input: {
       }),
     );
 
-  const existingKeepers = olderMatches.filter((tab) => !candidateIds.has(tab.id));
+  const existingKeepers = olderMatches.filter(
+    (tab) => !candidateIds.has(tab.id),
+  );
   if (existingKeepers.length > 0) {
     const matchedRule = input.rules.find(
       (rule) => rule.id === classification.key.ruleId,
@@ -124,10 +126,7 @@ export function decideDuplicatePair(input: {
   readonly existingUrl: string | undefined;
   readonly rules: readonly RegexRule[];
 }): DuplicatePairDecision {
-  if (
-    !isEligibleUrl(input.candidateUrl) ||
-    !isEligibleUrl(input.existingUrl)
-  ) {
+  if (!isEligibleUrl(input.candidateUrl) || !isEligibleUrl(input.existingUrl)) {
     return { kind: "not-duplicate" };
   }
   const candidate = classifyUrl({

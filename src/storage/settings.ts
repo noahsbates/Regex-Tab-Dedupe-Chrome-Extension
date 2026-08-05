@@ -1,10 +1,10 @@
 import {
   createEmptyRuleDocument,
   parseRuleDocument,
-  serializeRuleDocument,
-  validateRuleSet,
   type RegexRule,
   type RuleDocument,
+  serializeRuleDocument,
+  validateRuleSet,
 } from "../domain/rules";
 import type { ValueStorageArea } from "./value-storage";
 
@@ -171,8 +171,7 @@ export function createSettingsRepository(input: {
         storedBytes(
           SYNC_RULES_KEY,
           serializeRuleDocument(localEnvelope.document),
-        ) >
-        input.syncQuotaBytes
+        ) > input.syncQuotaBytes
       ) {
         return {
           kind: "failed",
