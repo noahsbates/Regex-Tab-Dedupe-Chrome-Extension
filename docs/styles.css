@@ -2,8 +2,8 @@
   color: #272c27;
   background: #e5e5dc;
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
   font-synthesis: none;
   --ink: #272c27;
   --muted: #62685f;
@@ -67,7 +67,10 @@ footer {
   align-items: center;
   gap: 10px;
   color: var(--ink);
-  font: 700 17px/1 Georgia, "Times New Roman", serif;
+  font:
+    700 17px / 1 Georgia,
+    "Times New Roman",
+    serif;
   text-decoration: none;
 }
 
@@ -109,7 +112,11 @@ footer {
   right: 3px;
   color: var(--green-dark);
   content: "*";
-  font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font:
+    700 10px / 1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
 }
 
 .site-header nav,
@@ -129,6 +136,7 @@ footer a {
 
 .site-header nav a:hover,
 .site-header nav a[aria-current="page"],
+/* biome-ignore lint/style/noDescendingSpecificity: header and footer links are disjoint elements, so the specificity order never decides a conflict */
 footer a:hover {
   color: var(--green);
   text-decoration: underline;
@@ -265,7 +273,11 @@ h1 {
 
 .step-number {
   color: var(--rust);
-  font: 800 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font:
+    800 12px / 1.2 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
 }
 
 .steps h3,
@@ -444,7 +456,12 @@ code {
   border-radius: 1px;
   color: #39453b;
   background: #ecece4;
-  font: 0.9em/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+  font:
+    0.9em / 1.4 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
     monospace;
 }
 
@@ -465,6 +482,7 @@ dl > div:first-child {
 }
 
 dt,
+/* biome-ignore lint/style/noDescendingSpecificity: this margin reset shares no properties with the earlier .policy dd rule */
 dd {
   margin: 0;
 }

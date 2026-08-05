@@ -69,6 +69,9 @@ npx playwright install chromium
 ```sh
 npm test              # unit and integration tests
 npm run typecheck     # strict TypeScript check
+npm run lint          # Biome lint, format, and import-order check
+npm run lint:fix      # apply safe Biome fixes
+npm run format        # format everything with Biome
 npm run build         # production build plus manifest validation
 npm run test:e2e      # load dist/ in Playwright Chromium
 npm run package       # full release checks plus deterministic Web Store ZIP

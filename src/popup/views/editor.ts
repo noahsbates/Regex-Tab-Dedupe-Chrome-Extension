@@ -160,7 +160,10 @@ function advancedRulesSection(
   return advancedRules;
 }
 
-function aiPromptBanner(form: HTMLElement, input: EditorFormInput): HTMLElement {
+function aiPromptBanner(
+  form: HTMLElement,
+  input: EditorFormInput,
+): HTMLElement {
   const editing = input.mode === "editing";
   const banner = element("aside", "ai-prompt-banner");
   const copy = element("div", "ai-prompt-copy");

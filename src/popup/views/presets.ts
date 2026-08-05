@@ -1,8 +1,8 @@
 import {
   isPresetInstalled,
   PRESET_FILTERS,
-  RULE_PRESETS,
   type PresetFilter,
+  RULE_PRESETS,
   type RulePreset,
 } from "../../domain/presets";
 import type { RegexRule } from "../../domain/rules";
@@ -47,8 +47,12 @@ export function presetsView(input: PresetsViewInput): HTMLElement {
     (preset) => input.filter === "All" || preset.category === input.filter,
   );
   const visiblePresets = [
-    ...filteredPresets.filter((preset) => !isPresetInstalled(input.rules, preset)),
-    ...filteredPresets.filter((preset) => isPresetInstalled(input.rules, preset)),
+    ...filteredPresets.filter(
+      (preset) => !isPresetInstalled(input.rules, preset),
+    ),
+    ...filteredPresets.filter((preset) =>
+      isPresetInstalled(input.rules, preset),
+    ),
   ];
   for (const preset of visiblePresets) {
     grid.append(presetCard(preset, input));

@@ -209,7 +209,8 @@ export function validateRuleSet(
         issues.push({
           field: isFlagError(error) ? "flags" : "pattern",
           ruleId: rule.id,
-          message: error instanceof Error ? error.message : "Invalid expression.",
+          message:
+            error instanceof Error ? error.message : "Invalid expression.",
         });
       }
     }

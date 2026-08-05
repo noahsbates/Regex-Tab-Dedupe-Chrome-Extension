@@ -1,8 +1,4 @@
-import {
-  closePoliciesEqual,
-  type ClosePolicy,
-  type RegexRule,
-} from "./rules";
+import { type ClosePolicy, closePoliciesEqual, type RegexRule } from "./rules";
 
 export type PresetCategory =
   | "Developer"
@@ -82,7 +78,7 @@ export const RULE_PRESETS: readonly RulePreset[] = [
     category: "Everyday",
     name: "Same URL without query or fragment",
     description: "Ignore tracking parameters, searches, and page anchors.",
-    pattern: String.raw`^(https?://[^?#]+)`,
+    pattern: "^(https?://[^?#]+)",
     flags: "i",
     closePolicy: { kind: "close-new" },
   },

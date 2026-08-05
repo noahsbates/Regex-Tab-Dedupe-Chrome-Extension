@@ -1,8 +1,5 @@
-import type {
-  BrowserPort,
-  RetryScheduler,
-} from "./coordinator";
 import type { TabSnapshot } from "../domain/reconcile";
+import type { BrowserPort, RetryScheduler } from "./coordinator";
 
 export const RETRY_ALARM_NAME = "retry-pending-dedupe";
 

@@ -12,13 +12,18 @@ const source = new PNG({
 paintLogo(source);
 const artwork = downsample(source, artworkSize);
 const logo = centerArtwork(artwork, outputSize);
-await writeFile(new URL("../public/logo.png", import.meta.url), PNG.sync.write(logo));
+await writeFile(
+  new URL("../public/logo.png", import.meta.url),
+  PNG.sync.write(logo),
+);
 
 function centerArtwork(artworkImage, canvasSize) {
   const canvas = new PNG({ width: canvasSize, height: canvasSize });
   const inset = (canvasSize - artworkImage.width) / 2;
   if (!Number.isInteger(inset) || artworkImage.width !== artworkImage.height) {
-    throw new Error("Logo artwork must be square and centered on whole pixels.");
+    throw new Error(
+      "Logo artwork must be square and centered on whole pixels.",
+    );
   }
 
   for (let y = 0; y < artworkImage.height; y += 1) {
@@ -171,8 +176,18 @@ function drawStar(image, centerX, centerY, radius, color) {
   const pixelRadius = radius * size;
   const thickness = Math.max(1, size * 0.035);
   const lines = [
-    [centerPixelX, centerPixelY - pixelRadius, centerPixelX, centerPixelY + pixelRadius],
-    [centerPixelX - pixelRadius, centerPixelY, centerPixelX + pixelRadius, centerPixelY],
+    [
+      centerPixelX,
+      centerPixelY - pixelRadius,
+      centerPixelX,
+      centerPixelY + pixelRadius,
+    ],
+    [
+      centerPixelX - pixelRadius,
+      centerPixelY,
+      centerPixelX + pixelRadius,
+      centerPixelY,
+    ],
     [
       centerPixelX - pixelRadius * 0.72,
       centerPixelY - pixelRadius * 0.72,
@@ -197,8 +212,16 @@ function drawLine(image, x1, y1, x2, y2, thickness, color) {
     const ratio = step / steps;
     const x = x1 + (x2 - x1) * ratio;
     const y = y1 + (y2 - y1) * ratio;
-    for (let py = Math.floor(y - thickness); py <= Math.ceil(y + thickness); py += 1) {
-      for (let px = Math.floor(x - thickness); px <= Math.ceil(x + thickness); px += 1) {
+    for (
+      let py = Math.floor(y - thickness);
+      py <= Math.ceil(y + thickness);
+      py += 1
+    ) {
+      for (
+        let px = Math.floor(x - thickness);
+        px <= Math.ceil(x + thickness);
+        px += 1
+      ) {
         if (Math.hypot(px + 0.5 - x, py + 0.5 - y) <= thickness) {
           setPixel(image, px, py, color);
         }

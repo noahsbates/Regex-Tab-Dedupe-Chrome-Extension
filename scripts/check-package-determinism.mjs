@@ -1,7 +1,7 @@
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { spawnSync } from "node:child_process";
 
 const root = resolve(import.meta.dirname, "..");
 const packageScript = resolve(import.meta.dirname, "package.mjs");
@@ -28,4 +28,6 @@ if (new Set(hashes).size !== 1) {
   throw new Error(`Package hashes differ by timezone: ${hashes.join(", ")}`);
 }
 
-console.log(`Verified deterministic package ${hashes[0]} across three timezones.`);
+console.log(
+  `Verified deterministic package ${hashes[0]} across three timezones.`,
+);

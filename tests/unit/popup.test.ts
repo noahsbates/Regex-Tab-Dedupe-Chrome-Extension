@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it } from "vitest";
+import { RULE_PRESETS } from "../../src/domain/presets";
 import {
   createEmptyRuleDocument,
   createRuleId,
@@ -8,7 +9,6 @@ import {
 } from "../../src/domain/rules";
 import { mountPopup } from "../../src/popup/app";
 import { createPopupLinks } from "../../src/popup/links";
-import { RULE_PRESETS } from "../../src/domain/presets";
 import type {
   LoadedSettings,
   SaveResult,
@@ -167,8 +167,9 @@ describe("popup", () => {
       ["PR your feature", links.contributeFeature],
     ] as const;
     expect(document.body.textContent).not.toContain("Help shape the extension");
-    expect(document.querySelectorAll(".support-footer > nav > .support-link"))
-      .toHaveLength(4);
+    expect(
+      document.querySelectorAll(".support-footer > nav > .support-link"),
+    ).toHaveLength(4);
     expect(
       document.querySelector(".support-link-contribute")?.textContent,
     ).toBe("PR your feature");
@@ -243,9 +244,9 @@ describe("popup", () => {
     expect(copiedText).toContain("Describe what you want here:");
     expect(input("name").value).toBe("Keep this draft");
     expect(document.body.textContent).toContain("Prompt copied");
-    expect(
-      button("Copy AI Prompt to help generate rules").textContent,
-    ).toBe("Copy AI Prompt to help generate rules");
+    expect(button("Copy AI Prompt to help generate rules").textContent).toBe(
+      "Copy AI Prompt to help generate rules",
+    );
   });
 
   it("copies an editing prompt with the regex currently in the form", async () => {
@@ -283,20 +284,23 @@ describe("popup", () => {
       },
     });
 
-    expect(
-      document.querySelector(".advanced-rule-badge")?.textContent,
-    ).toBe("+ Advanced rules");
+    expect(document.querySelector(".advanced-rule-badge")?.textContent).toBe(
+      "+ Advanced rules",
+    );
     button("Edit Docs").click();
     expect(button("− Advanced rules").getAttribute("aria-expanded")).toBe(
       "true",
     );
-    expect(document.querySelector(".new-tab-condition")?.hasAttribute("hidden"))
-      .toBe(false);
+    expect(
+      document.querySelector(".new-tab-condition")?.hasAttribute("hidden"),
+    ).toBe(false);
     input("pattern").value = String.raw`^https://example\.com/(guides)`;
     button("Copy AI Prompt to help edit this rule").click();
     await settle();
 
-    expect(document.body.textContent).toContain("Want help editing this regex?");
+    expect(document.body.textContent).toContain(
+      "Want help editing this regex?",
+    );
     expect(copiedText).toContain(
       String.raw`Current regex: /^https://example\.com/(guides)/i`,
     );
@@ -354,8 +358,9 @@ describe("popup", () => {
     expect(button("− Advanced rules").getAttribute("aria-expanded")).toBe(
       "true",
     );
-    expect(document.querySelector(".new-tab-condition")?.hasAttribute("hidden"))
-      .toBe(false);
+    expect(
+      document.querySelector(".new-tab-condition")?.hasAttribute("hidden"),
+    ).toBe(false);
     const deleteOldTab = input("deleteOldTab");
     if (!(deleteOldTab instanceof HTMLInputElement)) {
       throw new Error("Old-tab option is not a checkbox");
@@ -398,9 +403,9 @@ describe("popup", () => {
       closePolicy: { kind: "close-new" },
     });
     expect(button("PRESETS").getAttribute("aria-selected")).toBe("true");
-    expect(button("Same GitHub pull request preset already added").disabled).toBe(
-      true,
-    );
+    expect(
+      button("Same GitHub pull request preset already added").disabled,
+    ).toBe(true);
     button("RULES").click();
     expect(document.querySelector(".advanced-rule-badge")).toBeNull();
   });
@@ -437,9 +442,7 @@ describe("popup", () => {
 
     button("PRESETS").click();
 
-    const cards = [
-      ...document.querySelectorAll<HTMLElement>(".preset-card"),
-    ];
+    const cards = [...document.querySelectorAll<HTMLElement>(".preset-card")];
     expect(cards.at(-1)?.querySelector("h3")?.textContent).toBe(
       "Same YouTube video",
     );

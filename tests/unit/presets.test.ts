@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createRuleId, validateRuleSet } from "../../src/domain/rules";
 import { RULE_PRESETS } from "../../src/domain/presets";
+import { createRuleId, validateRuleSet } from "../../src/domain/rules";
 
 const cases = [
   {
@@ -79,8 +79,8 @@ describe("rule presets", () => {
     const preset = RULE_PRESETS.find(({ name }) => name === example.name);
     expect(preset).toBeDefined();
 
-    const identities = example.urls.map((url) =>
-      new RegExp(preset?.pattern ?? "", preset?.flags).exec(url)?.[1],
+    const identities = example.urls.map(
+      (url) => new RegExp(preset?.pattern ?? "", preset?.flags).exec(url)?.[1],
     );
     expect(identities).toEqual([example.identity, example.identity]);
   });
@@ -104,7 +104,9 @@ describe("rule presets", () => {
       closePolicy: {
         kind: "close-old-when-new-tab-matches",
       },
-      description: expect.stringContaining("PLACE ABOVE ANY GENERAL GITHUB RULE"),
+      description: expect.stringContaining(
+        "PLACE ABOVE ANY GENERAL GITHUB RULE",
+      ),
     });
   });
 

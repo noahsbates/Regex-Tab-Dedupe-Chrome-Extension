@@ -1,18 +1,22 @@
-import { isPresetInstalled, type PresetFilter, type RulePreset } from "../domain/presets";
+import {
+  isPresetInstalled,
+  type PresetFilter,
+  type RulePreset,
+} from "../domain/presets";
 import {
   createRuleId,
-  validateRuleSet,
   type RegexRule,
   type RuleId,
   type RuleValidationIssue,
+  validateRuleSet,
 } from "../domain/rules";
 import type { SettingsRepository } from "../storage/settings";
 import { element, writeClipboard } from "./dom";
 import { createPopupLinks, type PopupLinks } from "./links";
 import {
+  type EditorState,
   errorText,
   noticeFor,
-  type EditorState,
   type PopupView,
 } from "./state";
 import { editorForm, readEditorDraft } from "./views/editor";
@@ -110,7 +114,9 @@ export async function mountPopup(input: {
     if (banner !== null) {
       content.append(banner);
     }
-    content.append(view === "rules" ? currentRulesView() : currentPresetsView());
+    content.append(
+      view === "rules" ? currentRulesView() : currentPresetsView(),
+    );
 
     shell.append(
       appHeader(),
