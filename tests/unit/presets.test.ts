@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createRuleId, validateRuleSet } from "../../src/domain/rules";
-import { RULE_PRESETS } from "../../src/presets";
+import { RULE_PRESETS } from "../../src/domain/presets";
 
 const cases = [
   {

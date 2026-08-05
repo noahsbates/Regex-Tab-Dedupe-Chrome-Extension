@@ -1,29 +1,21 @@
+import { createChromeSettingsRepository } from "../storage/chrome";
+import { createChromeValueStorageArea } from "../storage/value-storage";
 import {
   createChromeBrowserPort,
   createChromeRetryScheduler,
   RETRY_ALARM_NAME,
   snapshot,
-} from "./background/chrome-port";
-import { createCoordinator } from "./background/coordinator";
-import { createSessionRepository } from "./background/session";
-import { createSettingsRepository } from "./storage/settings";
-import { createChromeValueStorageArea } from "./storage/value-storage";
+} from "./chrome-port";
+import { createCoordinator } from "./coordinator";
+import { createSessionRepository } from "./session";
 
-const retry = createChromeRetryScheduler();
-const session = createSessionRepository({
-  storage: createChromeValueStorageArea(chrome.storage.session),
-});
-const settings = createSettingsRepository({
-  sync: createChromeValueStorageArea(chrome.storage.sync),
-  local: createChromeValueStorageArea(chrome.storage.local),
-  createWriteId: () => crypto.randomUUID(),
-  syncQuotaBytes: chrome.storage.sync.QUOTA_BYTES_PER_ITEM,
-});
 const coordinator = createCoordinator({
   browser: createChromeBrowserPort(),
-  retry,
-  session,
-  settings,
+  retry: createChromeRetryScheduler(),
+  session: createSessionRepository({
+    storage: createChromeValueStorageArea(chrome.storage.session),
+  }),
+  settings: createChromeSettingsRepository(),
 });
 
 chrome.tabs.onCreated.addListener((tab) => {

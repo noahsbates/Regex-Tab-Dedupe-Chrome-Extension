@@ -1,4 +1,8 @@
-import type { ClosePolicy } from "./domain/rules";
+import {
+  closePoliciesEqual,
+  type ClosePolicy,
+  type RegexRule,
+} from "./rules";
 
 export type PresetCategory =
   | "Developer"
@@ -22,6 +26,18 @@ export interface RulePreset {
   readonly name: string;
   readonly pattern: string;
   readonly closePolicy: ClosePolicy;
+}
+
+export function isPresetInstalled(
+  rules: readonly RegexRule[],
+  preset: RulePreset,
+): boolean {
+  return rules.some(
+    (rule) =>
+      rule.pattern === preset.pattern &&
+      rule.flags === preset.flags &&
+      closePoliciesEqual(rule.closePolicy, preset.closePolicy),
+  );
 }
 
 export const RULE_PRESETS: readonly RulePreset[] = [

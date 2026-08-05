@@ -75,4 +75,19 @@ npm run package       # full release checks plus deterministic Web Store ZIP
 npm run logo          # regenerate the committed supersampled logo
 ```
 
-The production build is in `dist/`. Packaging creates `regex-tab-dedupe-extension.zip` at the repository root.
+The production build is in `dist/`. Packaging creates `regex-tab-dedupe-extension.zip` at the repository root. Pull requests run the same checks through GitHub Actions (`.github/workflows/ci.yml`).
+
+### Project layout
+
+```
+src/
+  domain/       pure rule logic: matching, validation, reconciliation, presets
+  storage/      settings repository over chrome.storage sync and local areas
+  background/   service-worker entry, Chrome adapters, and the dedupe coordinator
+  popup/        popup entry, state and actions (app.ts), and DOM views (views/)
+tests/          unit, integration, and Playwright end-to-end suites
+scripts/        logo generation, dist validation, deterministic packaging
+docs/           GitHub Pages site with the privacy policy
+```
+
+Each surface has a `main.ts` entry that wires Chrome APIs into otherwise Chrome-free modules: `domain/` is pure, `storage/` and the popup views depend only on injected interfaces, so everything below the entries runs in unit tests without a browser.

@@ -6,7 +6,7 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        background: resolve(import.meta.dirname, "src/background.ts"),
+        background: resolve(import.meta.dirname, "src/background/main.ts"),
         popup: resolve(import.meta.dirname, "popup.html"),
       },
       output: {

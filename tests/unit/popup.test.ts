@@ -6,9 +6,9 @@ import {
   createRuleId,
   type RegexRule,
 } from "../../src/domain/rules";
-import { mountPopup } from "../../src/popup";
-import { createPopupLinks } from "../../src/popup-links";
-import { RULE_PRESETS } from "../../src/presets";
+import { mountPopup } from "../../src/popup/app";
+import { createPopupLinks } from "../../src/popup/links";
+import { RULE_PRESETS } from "../../src/domain/presets";
 import type {
   LoadedSettings,
   SaveResult,

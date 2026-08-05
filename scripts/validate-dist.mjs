@@ -47,7 +47,7 @@ const allowedFiles = [
   /^assets\/background\.js$/,
   /^assets\/popup\.js$/,
   /^assets\/popup-[A-Za-z0-9_-]+\.css$/,
-  /^assets\/value-storage-[A-Za-z0-9_-]+\.js$/,
+  /^assets\/chrome-[A-Za-z0-9_-]+\.js$/,
   /^logo\.png$/,
   /^manifest\.json$/,
   /^popup\.html$/,
