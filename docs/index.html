@@ -30,11 +30,11 @@
     <main>
       <section class="hero" aria-labelledby="hero-title">
         <p class="eyebrow">Chrome extension</p>
-        <h1 id="hero-title">Keep the tab you opened first.</h1>
+        <h1 id="hero-title">Keep the tab you want.</h1>
         <p class="hero-copy">
           Regex Tab Dedupe watches newly opened tabs, compares their URLs with
-          rules you control, and closes a new duplicate after returning you to
-          the oldest match.
+          rules you control, and keeps either the old or new tab according to
+          the matching rule.
         </p>
         <div class="hero-actions">
           <a class="button primary" href="#how-it-works">How it works</a>
@@ -64,17 +64,19 @@
               <h3>Open a link</h3>
               <p>
                 The extension checks new HTTP and HTTPS tabs against your
-                enabled rules. Existing tabs are left alone.
+                enabled rules. It does not sweep tabs in the background.
               </p>
             </div>
           </li>
           <li>
             <span class="step-number">03</span>
             <div>
-              <h3>Return to the original</h3>
+              <h3>Keep the tab you choose</h3>
               <p>
                 If an older tab has the same rule identity, the extension
-                focuses that tab and closes only the new duplicate.
+                closes the new duplicate by default. A rule can instead close
+                the old tab and keep the newly opened one, either always or
+                only when the new URL matches an extra condition.
               </p>
             </div>
           </li>
@@ -95,10 +97,17 @@
             </p>
           </article>
           <article>
-            <h3>Editable presets</h3>
+            <h3>Ready-made presets</h3>
             <p>
-              Start with common GitHub, YouTube, Google Docs, Jira, or
-              query-free URL patterns, then edit before saving.
+              Apply common GitHub, YouTube, Google Docs, Jira, or query-free
+              URL patterns in one click, then edit them when needed.
+            </p>
+          </article>
+          <article>
+            <h3>Conditional replacement</h3>
+            <p>
+              A rule can keep a new tab only when its URL matches a stricter
+              regex, while the main regex continues to identify both tabs.
             </p>
           </article>
           <article>

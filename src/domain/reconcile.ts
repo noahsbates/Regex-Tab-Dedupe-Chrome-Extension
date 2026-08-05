@@ -2,6 +2,8 @@ import {
   classifyUrl,
   duplicateKeysEqual,
   isEligibleUrl,
+  resolveCloseAction,
+  type CloseAction,
   type DuplicateKey,
   type RegexRule,
 } from "./rules";
@@ -34,7 +36,15 @@ export interface TabSnapshot {
 export type CandidateDecision =
   | { readonly kind: "wait" }
   | { readonly kind: "settle" }
-  | { readonly kind: "close"; readonly keepers: readonly TabSnapshot[] };
+  | { readonly kind: "close-new"; readonly keepers: readonly TabSnapshot[] }
+  | {
+      readonly kind: "close-old";
+      readonly duplicates: readonly TabSnapshot[];
+    };
+
+export type DuplicatePairDecision =
+  | { readonly kind: "not-duplicate" }
+  | { readonly kind: "duplicate"; readonly action: CloseAction };
 
 export function decideCandidate(input: {
   readonly candidateTab: TabSnapshot;
@@ -86,7 +96,19 @@ export function decideCandidate(input: {
 
   const existingKeepers = olderMatches.filter((tab) => !candidateIds.has(tab.id));
   if (existingKeepers.length > 0) {
-    return { kind: "close", keepers: existingKeepers };
+    const matchedRule = input.rules.find(
+      (rule) => rule.id === classification.key.ruleId,
+    );
+    const action =
+      matchedRule === undefined
+        ? "close-new"
+        : resolveCloseAction({
+            policy: matchedRule.closePolicy,
+            candidateUrl,
+          });
+    return action === "close-old"
+      ? { kind: "close-old", duplicates: existingKeepers }
+      : { kind: "close-new", keepers: existingKeepers };
   }
 
   if (olderMatches.some((tab) => candidateIds.has(tab.id))) {
@@ -95,6 +117,47 @@ export function decideCandidate(input: {
   return input.candidateTab.status === "complete"
     ? { kind: "settle" }
     : { kind: "wait" };
+}
+
+export function decideDuplicatePair(input: {
+  readonly candidateUrl: string | undefined;
+  readonly existingUrl: string | undefined;
+  readonly rules: readonly RegexRule[];
+}): DuplicatePairDecision {
+  if (
+    !isEligibleUrl(input.candidateUrl) ||
+    !isEligibleUrl(input.existingUrl)
+  ) {
+    return { kind: "not-duplicate" };
+  }
+  const candidate = classifyUrl({
+    url: input.candidateUrl,
+    rules: input.rules,
+  });
+  const existing = classifyUrl({
+    url: input.existingUrl,
+    rules: input.rules,
+  });
+  if (
+    candidate.kind !== "identified" ||
+    existing.kind !== "identified" ||
+    !duplicateKeysEqual(candidate.key, existing.key)
+  ) {
+    return { kind: "not-duplicate" };
+  }
+  const matchedRule = input.rules.find(
+    (rule) => rule.id === candidate.key.ruleId,
+  );
+  if (matchedRule === undefined) {
+    return { kind: "not-duplicate" };
+  }
+  return {
+    kind: "duplicate",
+    action: resolveCloseAction({
+      policy: matchedRule.closePolicy,
+      candidateUrl: input.candidateUrl,
+    }),
+  };
 }
 
 export function compareTabAge(input: {

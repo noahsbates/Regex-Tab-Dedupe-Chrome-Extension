@@ -30,9 +30,13 @@ class FakeBrowser implements BrowserPort {
   readonly actions: string[] = [];
   failFocus = false;
   failClose = false;
+  getTabOverride:
+    | ((tabId: number, tab: TabSnapshot | undefined) => TabSnapshot | undefined)
+    | undefined;
 
   async getTab(tabId: number): Promise<TabSnapshot | undefined> {
-    return this.tabs.get(tabId);
+    const tab = this.tabs.get(tabId);
+    return this.getTabOverride?.(tabId, tab) ?? tab;
   }
 
   async listNormalTabs(): Promise<readonly TabSnapshot[]> {
@@ -78,6 +82,7 @@ const document: RuleDocument = {
       pattern: String.raw`^(https://example\.com/[^?#]+)`,
       flags: "",
       enabled: true,
+      closePolicy: { kind: "close-new" },
     },
   ],
 };
@@ -204,6 +209,123 @@ describe("new-tab coordinator", () => {
 
     expect(browser.actions).toEqual(["focus:10", "close:20"]);
     expect(browser.tabs.has(20)).toBe(false);
+  });
+
+  it("focuses the new tab and closes old duplicates when the rule requests it", async () => {
+    const replaceOldSettings: Pick<SettingsRepository, "load"> = {
+      async load() {
+        return {
+          ...loadedSettings,
+          document: {
+            ...document,
+            rules: document.rules.map((rule) => ({
+              ...rule,
+              closePolicy: { kind: "close-old" },
+            })),
+          },
+        };
+      },
+    };
+    const { browser, coordinator } = setup(replaceOldSettings);
+    browser.tabs.set(10, tab(10, "https://example.com/docs?old=1", "complete"));
+    browser.tabs.set(20, tab(20, "https://example.com/docs?new=1", "complete"));
+
+    await coordinator.onCreated({ tab: browser.tabs.get(20) });
+
+    expect(browser.actions).toEqual(["focus:20", "close:10"]);
+    expect(browser.tabs.has(10)).toBe(false);
+    expect(browser.tabs.has(20)).toBe(true);
+  });
+
+  it("replaces a broad old match when the new URL satisfies its condition", async () => {
+    const conditionalSettings: Pick<SettingsRepository, "load"> = {
+      async load() {
+        return {
+          ...loadedSettings,
+          document: {
+            ...document,
+            rules: [
+              {
+                id: createRuleId("github-comment"),
+                name: "GitHub comment",
+                pattern: String.raw`^https://github\.com/([^/?#]+/[^/?#]+/pull/\d+)(?:[/?#]|$)`,
+                flags: "i",
+                enabled: true,
+                closePolicy: {
+                  kind: "close-old-when-new-tab-matches",
+                  pattern: String.raw`#discussion_r\d+$`,
+                  flags: "i",
+                },
+              },
+            ],
+          },
+        };
+      },
+    };
+    const { browser, coordinator } = setup(conditionalSettings);
+    browser.tabs.set(
+      10,
+      tab(10, "https://github.com/acme/widgets/pull/42/files", "complete"),
+    );
+    browser.tabs.set(
+      20,
+      tab(
+        20,
+        "https://github.com/acme/widgets/pull/42#discussion_r123",
+        "complete",
+      ),
+    );
+
+    await coordinator.onCreated({ tab: browser.tabs.get(20) });
+
+    expect(browser.actions).toEqual(["focus:20", "close:10"]);
+    expect(browser.tabs.has(10)).toBe(false);
+    expect(browser.tabs.has(20)).toBe(true);
+  });
+
+  it("does not close the old tab when the candidate stops matching its condition", async () => {
+    const baseRule = document.rules[0];
+    if (baseRule === undefined) {
+      throw new Error("Missing base rule");
+    }
+    const conditionalSettings: Pick<SettingsRepository, "load"> = {
+      async load() {
+        return {
+          ...loadedSettings,
+          document: {
+            ...document,
+            rules: [
+              {
+                ...baseRule,
+                closePolicy: {
+                  kind: "close-old-when-new-tab-matches",
+                  pattern: "#comment-\\d+$",
+                  flags: "",
+                },
+              },
+            ],
+          },
+        };
+      },
+    };
+    const { browser, coordinator, retry, session } = setup(conditionalSettings);
+    browser.tabs.set(10, tab(10, "https://example.com/docs", "complete"));
+    browser.tabs.set(
+      20,
+      tab(20, "https://example.com/docs#comment-12", "complete"),
+    );
+    browser.getTabOverride = (tabId, current) =>
+      tabId === 20
+        ? tab(20, "https://example.com/docs", "complete")
+        : current;
+
+    await coordinator.onCreated({ tab: browser.tabs.get(20) });
+
+    expect(browser.actions).toEqual([]);
+    expect(retry.scheduled).toBe(1);
+    expect((await session.load()).candidates).toContainEqual(
+      expect.objectContaining({ tabId: 20 }),
+    );
   });
 
   it("recovers a persisted candidate after a worker restart", async () => {

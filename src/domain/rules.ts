@@ -2,12 +2,24 @@ declare const ruleIdBrand: unique symbol;
 
 export type RuleId = string & { readonly [ruleIdBrand]: "RuleId" };
 
+export type ClosePolicy =
+  | { readonly kind: "close-new" }
+  | { readonly kind: "close-old" }
+  | {
+      readonly kind: "close-old-when-new-tab-matches";
+      readonly pattern: string;
+      readonly flags: string;
+    };
+
+export type CloseAction = "close-new" | "close-old";
+
 export interface RegexRule {
   readonly id: RuleId;
   readonly name: string;
   readonly pattern: string;
   readonly flags: string;
   readonly enabled: boolean;
+  readonly closePolicy: ClosePolicy;
 }
 
 export interface RuleDocument {
@@ -35,6 +47,8 @@ export type RuleIssueField =
   | "flags"
   | "id"
   | "name"
+  | "newTabFlags"
+  | "newTabPattern"
   | "pattern";
 
 export interface RuleValidationIssue {
@@ -111,6 +125,40 @@ export function duplicateKeysEqual(
   return left.ruleId === right.ruleId && left.identity === right.identity;
 }
 
+export function resolveCloseAction(input: {
+  readonly policy: ClosePolicy;
+  readonly candidateUrl: string;
+}): CloseAction {
+  switch (input.policy.kind) {
+    case "close-new":
+      return "close-new";
+    case "close-old":
+      return "close-old";
+    case "close-old-when-new-tab-matches":
+      return new RegExp(input.policy.pattern, input.policy.flags).test(
+        input.candidateUrl,
+      )
+        ? "close-old"
+        : "close-new";
+  }
+}
+
+export function closePoliciesEqual(
+  left: ClosePolicy,
+  right: ClosePolicy,
+): boolean {
+  if (left.kind !== right.kind) {
+    return false;
+  }
+  if (
+    left.kind === "close-old-when-new-tab-matches" &&
+    right.kind === "close-old-when-new-tab-matches"
+  ) {
+    return left.pattern === right.pattern && left.flags === right.flags;
+  }
+  return true;
+}
+
 export function validateRuleSet(
   rules: readonly RegexRule[],
 ): RuleValidationResult {
@@ -173,6 +221,10 @@ export function validateRuleSet(
         message: `Flags cannot exceed ${MAX_FLAGS_LENGTH} characters.`,
       });
     }
+
+    if (rule.closePolicy.kind === "close-old-when-new-tab-matches") {
+      validateNewTabCondition({ rule, issues });
+    }
   }
 
   return issues.length === 0 ? { ok: true, rules } : { ok: false, issues };
@@ -217,6 +269,31 @@ export function createEmptyRuleDocument(): RuleDocument {
   return { schemaVersion: 1, writeId: "empty", rules: [] };
 }
 
+export function serializeRuleDocument(document: RuleDocument): unknown {
+  return {
+    schemaVersion: 1,
+    writeId: document.writeId,
+    rules: document.rules.map((rule) => ({
+      id: rule.id,
+      name: rule.name,
+      pattern: rule.pattern,
+      flags: rule.flags,
+      enabled: rule.enabled,
+      ...(rule.closePolicy.kind === "close-old"
+        ? { deleteOldTab: true }
+        : { deleteOldTab: false }),
+      ...(rule.closePolicy.kind === "close-old-when-new-tab-matches"
+        ? {
+            deleteOldTabWhenNewTabMatches: {
+              pattern: rule.closePolicy.pattern,
+              flags: rule.closePolicy.flags,
+            },
+          }
+        : {}),
+    })),
+  };
+}
+
 function parseRule(value: unknown): RegexRule | null {
   if (!isRecord(value)) {
     return null;
@@ -231,6 +308,11 @@ function parseRule(value: unknown): RegexRule | null {
     return null;
   }
 
+  const closePolicy = parseClosePolicy(value);
+  if (closePolicy === null) {
+    return null;
+  }
+
   try {
     return {
       id: createRuleId(value.id),
@@ -238,9 +320,79 @@ function parseRule(value: unknown): RegexRule | null {
       pattern: value.pattern,
       flags: value.flags,
       enabled: value.enabled,
+      closePolicy,
     };
   } catch {
     return null;
+  }
+}
+
+function parseClosePolicy(value: Record<string, unknown>): ClosePolicy | null {
+  if (
+    value.deleteOldTab !== undefined &&
+    typeof value.deleteOldTab !== "boolean"
+  ) {
+    return null;
+  }
+  const condition = value.deleteOldTabWhenNewTabMatches;
+  if (condition === undefined) {
+    return value.deleteOldTab === true
+      ? { kind: "close-old" }
+      : { kind: "close-new" };
+  }
+  if (
+    value.deleteOldTab === true ||
+    !isRecord(condition) ||
+    typeof condition.pattern !== "string" ||
+    typeof condition.flags !== "string"
+  ) {
+    return null;
+  }
+  return {
+    kind: "close-old-when-new-tab-matches",
+    pattern: condition.pattern,
+    flags: condition.flags,
+  };
+}
+
+function validateNewTabCondition(input: {
+  readonly rule: RegexRule;
+  readonly issues: RuleValidationIssue[];
+}): void {
+  const policy = input.rule.closePolicy;
+  if (policy.kind !== "close-old-when-new-tab-matches") {
+    return;
+  }
+  if (policy.pattern.length === 0) {
+    input.issues.push({
+      field: "newTabPattern",
+      ruleId: input.rule.id,
+      message: "Enter a new-tab condition or choose unconditional close-old.",
+    });
+  } else if (policy.pattern.length > MAX_PATTERN_LENGTH) {
+    input.issues.push({
+      field: "newTabPattern",
+      ruleId: input.rule.id,
+      message: `New-tab conditions cannot exceed ${MAX_PATTERN_LENGTH} characters.`,
+    });
+  } else {
+    try {
+      new RegExp(policy.pattern, policy.flags);
+    } catch (error) {
+      input.issues.push({
+        field: isFlagError(error) ? "newTabFlags" : "newTabPattern",
+        ruleId: input.rule.id,
+        message:
+          error instanceof Error ? error.message : "Invalid new-tab condition.",
+      });
+    }
+  }
+  if (policy.flags.length > MAX_FLAGS_LENGTH) {
+    input.issues.push({
+      field: "newTabFlags",
+      ruleId: input.rule.id,
+      message: `Condition flags cannot exceed ${MAX_FLAGS_LENGTH} characters.`,
+    });
   }
 }
 

@@ -14,6 +14,7 @@ const rules: readonly RegexRule[] = [
     pattern: String.raw`^(https://example\.com/[^?#]+)`,
     flags: "",
     enabled: true,
+    closePolicy: { kind: "close-new" },
   },
 ];
 
@@ -58,8 +59,8 @@ describe("decideCandidate", () => {
       rules,
     });
 
-    expect(decision.kind).toBe("close");
-    if (decision.kind === "close") {
+    expect(decision.kind).toBe("close-new");
+    if (decision.kind === "close-new") {
       expect(decision.keepers.map((keeper) => keeper.id)).toEqual([10]);
     }
   });
@@ -77,8 +78,8 @@ describe("decideCandidate", () => {
       rules,
     });
 
-    expect(decision.kind).toBe("close");
-    if (decision.kind === "close") {
+    expect(decision.kind).toBe("close-new");
+    if (decision.kind === "close-new") {
       expect(decision.keepers.map((keeper) => keeper.id)).toEqual([10, 20]);
     }
   });
@@ -126,10 +127,93 @@ describe("decideCandidate", () => {
       rules,
     });
 
-    expect(decision.kind).toBe("close");
-    if (decision.kind === "close") {
+    expect(decision.kind).toBe("close-new");
+    if (decision.kind === "close-new") {
       expect(decision.keepers.map((keeper) => keeper.id)).toEqual([5, 15]);
     }
+  });
+
+  it("returns old duplicates when the matching rule keeps the new tab", () => {
+    const decision = decideCandidate({
+      candidateTab: tab(20, "https://example.com/docs?new=1"),
+      tabs: [
+        tab(10, "https://example.com/docs?old=1"),
+        tab(20, "https://example.com/docs?new=1"),
+      ],
+      candidates: [candidate(20, 2)],
+      births: [birth(10, 1), birth(20, 2)],
+      rules: rules.map((rule) => ({
+        ...rule,
+        closePolicy: { kind: "close-old" },
+      })),
+    });
+
+    expect(decision.kind).toBe("close-old");
+    if (decision.kind === "close-old") {
+      expect(decision.duplicates.map((duplicate) => duplicate.id)).toEqual([
+        10,
+      ]);
+    }
+  });
+
+  it("closes an old broad match only when the new tab matches its condition", () => {
+    const githubRules: readonly RegexRule[] = [
+      {
+        id: createRuleId("github-comment"),
+        name: "Switch to new GitHub comment",
+        pattern: String.raw`^https://github\.com/([^/?#]+/[^/?#]+/pull/\d+)(?:[/?#]|$)`,
+        flags: "i",
+        enabled: true,
+        closePolicy: {
+          kind: "close-old-when-new-tab-matches",
+          pattern: String.raw`^https://github\.com/[^/?#]+/[^/?#]+/pull/\d+/files#diff-[a-f0-9]+R\d+$`,
+          flags: "i",
+        },
+      },
+    ];
+    const oldUrl = "https://github.com/acme/widgets/pull/42/files";
+    const commentUrl =
+      "https://github.com/acme/widgets/pull/42/files#diff-abc123R55";
+
+    const decision = decideCandidate({
+      candidateTab: tab(20, commentUrl),
+      tabs: [tab(10, oldUrl), tab(20, commentUrl)],
+      candidates: [candidate(20, 2)],
+      births: [birth(10, 1), birth(20, 2)],
+      rules: githubRules,
+    });
+
+    expect(decision.kind).toBe("close-old");
+  });
+
+  it("keeps the old duplicate when the new tab misses its condition", () => {
+    const conditionalRules: readonly RegexRule[] = [
+      {
+        id: createRuleId("conditional"),
+        name: "Conditional",
+        pattern: String.raw`^(https://example\.com/docs)`,
+        flags: "",
+        enabled: true,
+        closePolicy: {
+          kind: "close-old-when-new-tab-matches",
+          pattern: String.raw`#comment-\d+$`,
+          flags: "",
+        },
+      },
+    ];
+
+    const decision = decideCandidate({
+      candidateTab: tab(20, "https://example.com/docs?plain=1"),
+      tabs: [
+        tab(10, "https://example.com/docs?old=1"),
+        tab(20, "https://example.com/docs?plain=1"),
+      ],
+      candidates: [candidate(20, 2)],
+      births: [birth(10, 1), birth(20, 2)],
+      rules: conditionalRules,
+    });
+
+    expect(decision.kind).toBe("close-new");
   });
 
   it("does not cross regular and incognito contexts", () => {

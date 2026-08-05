@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-test("saves a rule, closes the new duplicate, and focuses the old tab", async () => {
+test("a rule can keep either the old or new duplicate tab", async () => {
   const extensionPath = resolve(import.meta.dirname, "../../dist");
   const userDataDirectory = await mkdtemp(join(tmpdir(), "regex-tab-dedupe-"));
   const server = await startServer();
@@ -29,10 +29,9 @@ test("saves a rule, closes the new duplicate, and focuses the old tab", async ()
     await popup.getByRole("tab", { name: "PRESETS" }).click();
     await popup
       .getByRole("button", {
-        name: "Use Same URL without query or fragment preset",
+        name: "Apply Same URL without query or fragment preset",
       })
       .click();
-    await popup.getByRole("button", { name: "Save rule" }).click();
     await expect(
       popup.getByRole("heading", {
         name: "Same URL without query or fragment",
@@ -62,9 +61,112 @@ test("saves a rule, closes the new duplicate, and focuses the old tab", async ()
       return activeTabs.find((tab) => tab.url?.startsWith("http"))?.url;
     });
     expect(activeUrl).toBe(`${server.origin}/same-page?source=first`);
+
+    await popup.getByRole("tab", { name: "RULES" }).click();
+    await popup
+      .getByRole("button", {
+        name: "Edit Same URL without query or fragment",
+      })
+      .click();
+    await popup.getByRole("button", { name: "+ Advanced rules" }).click();
+    await popup
+      .getByRole("checkbox", {
+        name: "Close old tab instead",
+      })
+      .check();
+    await popup
+      .locator('[name="newTabPattern"]')
+      .fill(String.raw`source=third$`);
+    await popup.getByRole("button", { name: "Save rule" }).click();
+
+    const third = await context.newPage();
+    await third.goto(`${server.origin}/same-page?source=third`);
+    await expect
+      .poll(
+        () => context?.pages().some((page) => page === first) ?? true,
+        { timeout: 1_500 },
+      )
+      .toBe(false);
+    await expect(third).toHaveURL(`${server.origin}/same-page?source=third`);
+
+    const newestActiveUrl = await serviceWorker.evaluate(async () => {
+      const activeTabs = await chrome.tabs.query({ active: true });
+      return activeTabs.find((tab) => tab.url?.startsWith("http"))?.url;
+    });
+    expect(newestActiveUrl).toBe(`${server.origin}/same-page?source=third`);
   } finally {
     await context?.close();
     await server.close();
+    await rm(userDataDirectory, { recursive: true, force: true });
+  }
+});
+
+test("the GitHub comment preset replaces a plain PR tab only for comment links", async () => {
+  const extensionPath = resolve(import.meta.dirname, "../../dist");
+  const userDataDirectory = await mkdtemp(join(tmpdir(), "regex-tab-github-"));
+  let context: BrowserContext | undefined;
+
+  try {
+    context = await chromium.launchPersistentContext(userDataDirectory, {
+      channel: "chromium",
+      headless: true,
+      args: [
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`,
+      ],
+    });
+    await context.route("https://github.com/**", (route) =>
+      route.fulfill({
+        contentType: "text/html",
+        body: "<!doctype html><title>GitHub fixture</title><h1>Pull request</h1>",
+      }),
+    );
+    const serviceWorker =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent("serviceworker"));
+    const extensionId = new URL(serviceWorker.url()).host;
+    const popup = await context.newPage();
+    await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+    await popup.getByRole("tab", { name: "PRESETS" }).click();
+    await popup
+      .getByRole("button", {
+        name: "Apply Switch to new GitHub comment preset",
+      })
+      .click();
+
+    const oldPr = await context.newPage();
+    await oldPr.goto("https://github.com/acme/widgets/pull/42/files");
+    const comment = await context.newPage();
+    await comment.goto(
+      "https://github.com/acme/widgets/pull/42#discussion_r3717711453",
+    );
+
+    await expect
+      .poll(
+        () => context?.pages().some((page) => page === oldPr) ?? true,
+        { timeout: 1_500 },
+      )
+      .toBe(false);
+    await expect(comment).toHaveURL(
+      "https://github.com/acme/widgets/pull/42#discussion_r3717711453",
+    );
+
+    const ordinaryDuplicate = await context.newPage();
+    const ordinaryNavigation = ordinaryDuplicate
+      .goto("https://github.com/acme/widgets/pull/42/commits")
+      .catch(() => null);
+    await expect
+      .poll(
+        () => context?.pages().some((page) => page === ordinaryDuplicate) ?? true,
+        { timeout: 1_500 },
+      )
+      .toBe(false);
+    await ordinaryNavigation;
+    await expect(comment).toHaveURL(
+      "https://github.com/acme/widgets/pull/42#discussion_r3717711453",
+    );
+  } finally {
+    await context?.close();
     await rm(userDataDirectory, { recursive: true, force: true });
   }
 });

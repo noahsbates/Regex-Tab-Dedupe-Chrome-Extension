@@ -1,11 +1,13 @@
 import {
+  closePoliciesEqual,
   createRuleId,
   validateRuleSet,
+  type ClosePolicy,
   type RegexRule,
   type RuleId,
   type RuleValidationIssue,
 } from "./domain/rules";
-import { AI_RULE_PROMPT } from "./ai-rule-prompt";
+import { AI_RULE_PROMPT, createAiRuleEditPrompt } from "./ai-rule-prompt";
 import { createPopupLinks, type PopupLinks } from "./popup-links";
 import {
   PRESET_FILTERS,
@@ -28,6 +30,7 @@ interface RuleDraft {
   readonly pattern: string;
   readonly flags: string;
   readonly enabled: boolean;
+  readonly closePolicy: ClosePolicy;
 }
 
 type EditorState =
@@ -90,6 +93,19 @@ export async function mountPopup(input: {
   }
 
   function render(): void {
+    if (editor.kind !== "none") {
+      const shell = element("div", "popup-shell editor-shell");
+      const content = element("main", "editor-content");
+      const currentNotice = attentionNotice();
+      if (currentNotice !== null) {
+        content.append(currentNotice);
+      }
+      content.append(editorForm(editor.draft));
+      shell.append(content);
+      root.replaceChildren(shell);
+      return;
+    }
+
     const shell = element("div", "popup-shell");
     const content = element("main", "popup-content");
     content.id = "active-view";
@@ -220,9 +236,6 @@ export async function mountPopup(input: {
     );
     section.append(heading);
 
-    if (editor.kind !== "none") {
-      section.append(editorForm(editor.draft));
-    }
     section.append(ruleList());
     return section;
   }
@@ -268,6 +281,15 @@ export async function mountPopup(input: {
     const name = document.createElement("h3");
     name.textContent = rule.name;
     identity.append(priority, name);
+    if (rule.closePolicy.kind !== "close-new") {
+      const advanced = element("span", "advanced-rule-badge");
+      advanced.textContent = "+ Advanced rules";
+      advanced.title =
+        rule.closePolicy.kind === "close-old-when-new-tab-matches"
+          ? "This rule has an additional new-tab condition."
+          : "This rule has advanced close behavior.";
+      identity.append(advanced);
+    }
 
     const toggleLabel = document.createElement("label");
     toggleLabel.className = "toggle";
@@ -366,7 +388,7 @@ export async function mountPopup(input: {
     title.textContent = "Presets";
     const copy = document.createElement("p");
     copy.textContent =
-      "Useful starting points. Choosing one opens an editable draft. It never saves automatically.";
+      "Apply a preset to add it to your rules right away.";
     titleBlock.append(title, copy);
     heading.append(titleBlock);
 
@@ -387,9 +409,13 @@ export async function mountPopup(input: {
     filters.append(filterLabel, filterButtons);
 
     const grid = element("div", "preset-list");
-    const visiblePresets = RULE_PRESETS.filter(
+    const filteredPresets = RULE_PRESETS.filter(
       (preset) => presetFilter === "All" || preset.category === presetFilter,
     );
+    const visiblePresets = [
+      ...filteredPresets.filter((preset) => !isPresetInstalled(preset)),
+      ...filteredPresets.filter(isPresetInstalled),
+    ];
     for (const preset of visiblePresets) {
       grid.append(presetCard(preset));
     }
@@ -398,7 +424,11 @@ export async function mountPopup(input: {
   }
 
   function presetCard(preset: RulePreset): HTMLElement {
-    const card = element("article", "preset-card");
+    const installed = isPresetInstalled(preset);
+    const card = element(
+      "article",
+      installed ? "preset-card installed" : "preset-card",
+    );
     const top = element("div", "preset-card-top");
     const category = element(
       "span",
@@ -412,15 +442,24 @@ export async function mountPopup(input: {
     description.textContent = preset.description;
     const pattern = document.createElement("code");
     pattern.textContent = `/${preset.pattern}/${preset.flags}`;
+    const applyButton = actionButton(
+      installed ? "Added" : "Apply preset",
+      () => {
+        void applyPreset(preset);
+      },
+      {
+        ariaLabel: installed
+          ? `${preset.name} preset already added`
+          : `Apply ${preset.name} preset`,
+        className: "use-preset",
+        disabled: saving || installed,
+      },
+    );
     card.append(
       top,
       description,
       pattern,
-      actionButton("Use preset", () => beginPreset(preset), {
-        ariaLabel: `Use ${preset.name} preset`,
-        className: "use-preset",
-        disabled: saving || editor.kind !== "none",
-      }),
+      applyButton,
     );
     return card;
   }
@@ -452,16 +491,23 @@ export async function mountPopup(input: {
       void saveEditor();
     });
     const titleRow = element("div", "editor-title");
+    const titleCopy = element("div", "editor-title-copy");
     const heading = document.createElement("h2");
     heading.textContent = editor.kind === "adding" ? "Add rule" : "Edit rule";
     const helper = document.createElement("span");
     helper.textContent = "HTTP(S) URLs only";
-    titleRow.append(heading, helper);
-    if (editor.kind === "adding") {
-      form.append(aiPromptBanner());
-    }
+    titleCopy.append(heading, helper);
+    titleRow.append(
+      titleCopy,
+      actionButton("×", closeEditor, {
+        ariaLabel: "Close rule editor",
+        className: "editor-close",
+        disabled: saving,
+      }),
+    );
     form.append(
       titleRow,
+      aiPromptBanner(draft),
       textField({ label: "Name", name: "name", value: draft.name }),
       textField({
         label: "Regular expression",
@@ -478,14 +524,80 @@ export async function mountPopup(input: {
       }),
     );
 
-    const enabledLabel = document.createElement("label");
-    enabledLabel.className = "checkbox-field";
-    const enabled = document.createElement("input");
-    enabled.type = "checkbox";
-    enabled.name = "enabled";
-    enabled.checked = draft.enabled;
-    enabledLabel.append(enabled, document.createTextNode(" Enable this rule"));
-    form.append(enabledLabel);
+    const advancedRules = element("section", "advanced-rules");
+    const advancedContent = element("div", "advanced-rules-content");
+    advancedContent.id = "advanced-rules-content";
+    let advancedOpen =
+      draft.closePolicy.kind !== "close-new" ||
+      issues.some(
+        (issue) =>
+          issue.field === "newTabPattern" || issue.field === "newTabFlags",
+      );
+    const advancedToggle = actionButton("", () => {
+      setAdvancedVisibility(!advancedOpen);
+    }, {
+      className: "advanced-rules-toggle",
+    });
+    advancedToggle.setAttribute("aria-controls", advancedContent.id);
+    const setAdvancedVisibility = (open: boolean): void => {
+      advancedOpen = open;
+      advancedContent.hidden = !open;
+      advancedContent.setAttribute("aria-hidden", String(!open));
+      advancedToggle.setAttribute("aria-expanded", String(open));
+      advancedToggle.textContent = `${open ? "−" : "+"} Advanced rules`;
+    };
+
+    const deleteOldLabel = document.createElement("label");
+    deleteOldLabel.className = "checkbox-field close-old-option";
+    const deleteOldTab = document.createElement("input");
+    deleteOldTab.type = "checkbox";
+    deleteOldTab.name = "deleteOldTab";
+    deleteOldTab.checked = draft.closePolicy.kind !== "close-new";
+    deleteOldTab.setAttribute("aria-controls", "new-tab-condition");
+    deleteOldLabel.append(
+      deleteOldTab,
+      document.createTextNode(" Close old tab instead"),
+    );
+
+    const conditionalPolicy =
+      draft.closePolicy.kind === "close-old-when-new-tab-matches"
+        ? draft.closePolicy
+        : undefined;
+    const condition = element("div", "new-tab-condition");
+    condition.id = "new-tab-condition";
+    const conditionIntro = document.createElement("p");
+    conditionIntro.textContent =
+      "Optional: require the newly opened tab to match a stricter regex before it can replace the old tab.";
+    const conditionPattern = textField({
+      label: "New-tab condition",
+      name: "newTabPattern",
+      value: conditionalPolicy?.pattern ?? "",
+      multiline: true,
+      hint: "The main regex identifies both tabs. Leave this blank to always keep the new tab.",
+    });
+    const conditionFlags = textField({
+      label: "Condition flags",
+      name: "newTabFlags",
+      value: conditionalPolicy?.flags ?? draft.flags,
+      hint: "These flags apply only to the new-tab condition.",
+    });
+    condition.append(conditionIntro, conditionPattern, conditionFlags);
+
+    const setConditionState = (): void => {
+      condition.classList.toggle("disabled", !deleteOldTab.checked);
+      condition.setAttribute("aria-disabled", String(!deleteOldTab.checked));
+      for (const control of condition.querySelectorAll<
+        HTMLInputElement | HTMLTextAreaElement
+      >("input, textarea")) {
+        control.disabled = !deleteOldTab.checked;
+      }
+    };
+    deleteOldTab.addEventListener("change", setConditionState);
+    setConditionState();
+    advancedContent.append(deleteOldLabel, condition);
+    setAdvancedVisibility(advancedOpen);
+    advancedRules.append(advancedToggle, advancedContent);
+    form.append(advancedRules);
 
     const formIssues = element("div", "form-errors");
     formIssues.setAttribute("aria-live", "polite");
@@ -503,32 +615,38 @@ export async function mountPopup(input: {
         disabled: saving,
         type: "submit",
       }),
-      actionButton("Cancel", () => {
-        editor = { kind: "none" };
-        issues = [];
-        render();
-      }, { disabled: saving }),
     );
     form.append(actions);
     return form;
   }
 
-  function aiPromptBanner(): HTMLElement {
+  function aiPromptBanner(draft: RuleDraft): HTMLElement {
+    const editing = editor.kind === "editing";
     const banner = element("aside", "ai-prompt-banner");
     const copy = element("div", "ai-prompt-copy");
     const heading = document.createElement("strong");
-    heading.textContent = "Want help writing the regex?";
+    heading.textContent = editing
+      ? "Want help editing this regex?"
+      : "Want help writing the regex?";
     const description = document.createElement("p");
-    description.textContent =
-      "Copy a ready-to-paste AI prompt, then finish it with what you want to deduplicate.";
+    description.textContent = editing
+      ? "Copy a prompt that includes the current regex, then describe the change you want."
+      : "Copy a ready-to-paste AI prompt, then finish it with what you want to deduplicate.";
     copy.append(heading, description);
 
     const feedback = element("span", "copy-feedback");
     feedback.setAttribute("role", "status");
     feedback.setAttribute("aria-live", "polite");
     const copyButton = actionButton(
-      "Copy AI Prompt to help generate rules",
-      () => void copyAiPrompt({ button: copyButton, feedback }),
+      editing
+        ? "Copy AI Prompt to help edit this rule"
+        : "Copy AI Prompt to help generate rules",
+      () =>
+        void copyAiPrompt({
+          button: copyButton,
+          feedback,
+          prompt: editing ? currentEditPrompt(draft) : AI_RULE_PROMPT,
+        }),
       { className: "copy-prompt-button" },
     );
     banner.append(copy, copyButton, feedback);
@@ -538,11 +656,12 @@ export async function mountPopup(input: {
   async function copyAiPrompt(input: {
     readonly button: HTMLButtonElement;
     readonly feedback: HTMLElement;
+    readonly prompt: string;
   }): Promise<void> {
     input.button.disabled = true;
     input.feedback.textContent = "Copying prompt";
     try {
-      await copyText(AI_RULE_PROMPT);
+      await copyText(input.prompt);
       input.feedback.textContent = "Prompt copied";
     } catch {
       input.feedback.textContent = "Could not copy the prompt. Try again.";
@@ -554,13 +673,6 @@ export async function mountPopup(input: {
   function selectView(nextView: PopupView, focusTab = false): void {
     if (view === nextView) {
       return;
-    }
-    // Opening Presets discards an in-progress draft. Carrying it over would
-    // leave every "Use preset" button disabled with nothing on screen to
-    // explain why.
-    if (nextView === "presets" && editor.kind !== "none") {
-      editor = { kind: "none" };
-      issues = [];
     }
     view = nextView;
     render();
@@ -579,6 +691,7 @@ export async function mountPopup(input: {
         pattern: "",
         flags: "",
         enabled: true,
+        closePolicy: { kind: "close-new" },
       },
     };
     issues = [];
@@ -593,27 +706,37 @@ export async function mountPopup(input: {
     render();
   }
 
-  function beginPreset(preset: RulePreset): void {
-    editor = {
-      kind: "adding",
-      draft: {
+  async function applyPreset(preset: RulePreset): Promise<void> {
+    if (isPresetInstalled(preset)) {
+      return;
+    }
+    await commitRules([
+      ...loaded.document.rules,
+      {
         id: createRuleId(input.createId()),
         name: preset.name,
         pattern: preset.pattern,
         flags: preset.flags,
         enabled: true,
+        closePolicy: preset.closePolicy,
       },
-    };
-    issues = [];
-    view = "rules";
-    render();
+    ]);
+  }
+
+  function isPresetInstalled(preset: RulePreset): boolean {
+    return loaded.document.rules.some(
+      (rule) =>
+        rule.pattern === preset.pattern &&
+        rule.flags === preset.flags &&
+        closePoliciesEqual(rule.closePolicy, preset.closePolicy),
+    );
   }
 
   async function saveEditor(): Promise<void> {
     if (editor.kind === "none") {
       return;
     }
-    const draft = readDraft(editor.draft.id);
+    const draft = readDraft(editor.draft);
     if (draft === null) {
       return;
     }
@@ -633,11 +756,13 @@ export async function mountPopup(input: {
     await commitRules(nextRules, true);
   }
 
-  function readDraft(id: RuleId): RuleDraft | null {
+  function readDraft(current: RuleDraft): RuleDraft | null {
     const name = root.querySelector('[name="name"]');
     const pattern = root.querySelector('[name="pattern"]');
     const flags = root.querySelector('[name="flags"]');
-    const enabled = root.querySelector('[name="enabled"]');
+    const deleteOldTab = root.querySelector('[name="deleteOldTab"]');
+    const newTabPattern = root.querySelector('[name="newTabPattern"]');
+    const newTabFlags = root.querySelector('[name="newTabFlags"]');
     if (
       !(name instanceof HTMLInputElement) ||
       !(
@@ -645,7 +770,12 @@ export async function mountPopup(input: {
         pattern instanceof HTMLTextAreaElement
       ) ||
       !(flags instanceof HTMLInputElement) ||
-      !(enabled instanceof HTMLInputElement)
+      !(deleteOldTab instanceof HTMLInputElement) ||
+      !(
+        newTabPattern instanceof HTMLInputElement ||
+        newTabPattern instanceof HTMLTextAreaElement
+      ) ||
+      !(newTabFlags instanceof HTMLInputElement)
     ) {
       notice = {
         kind: "error",
@@ -655,12 +785,51 @@ export async function mountPopup(input: {
       return null;
     }
     return {
-      id,
+      id: current.id,
       name: name.value.trim(),
       pattern: pattern.value,
       flags: flags.value.trim(),
-      enabled: enabled.checked,
+      enabled: current.enabled,
+      closePolicy: readClosePolicy({
+        deleteOldTab: deleteOldTab.checked,
+        newTabPattern: newTabPattern.value,
+        newTabFlags: newTabFlags.value.trim(),
+      }),
     };
+  }
+
+  function currentEditPrompt(draft: RuleDraft): string {
+    const pattern = root.querySelector('[name="pattern"]');
+    const flags = root.querySelector('[name="flags"]');
+    const deleteOldTab = root.querySelector('[name="deleteOldTab"]');
+    const newTabPattern = root.querySelector('[name="newTabPattern"]');
+    const newTabFlags = root.querySelector('[name="newTabFlags"]');
+    const closePolicy =
+      deleteOldTab instanceof HTMLInputElement &&
+      (newTabPattern instanceof HTMLInputElement ||
+        newTabPattern instanceof HTMLTextAreaElement) &&
+      newTabFlags instanceof HTMLInputElement
+        ? readClosePolicy({
+            deleteOldTab: deleteOldTab.checked,
+            newTabPattern: newTabPattern.value,
+            newTabFlags: newTabFlags.value.trim(),
+          })
+        : draft.closePolicy;
+    return createAiRuleEditPrompt({
+      pattern:
+        pattern instanceof HTMLInputElement ||
+        pattern instanceof HTMLTextAreaElement
+          ? pattern.value
+          : draft.pattern,
+      flags: flags instanceof HTMLInputElement ? flags.value.trim() : draft.flags,
+      closePolicy,
+    });
+  }
+
+  function closeEditor(): void {
+    editor = { kind: "none" };
+    issues = [];
+    render();
   }
 
   async function commitRules(
@@ -769,7 +938,7 @@ export async function mountPopup(input: {
   const unsubscribe = input.subscribe(() => {
     if (editor.kind !== "none") {
       if (view === "rules") {
-        const draft = readDraft(editor.draft.id);
+        const draft = readDraft(editor.draft);
         if (draft !== null) {
           editor = { ...editor, draft };
         }
@@ -799,6 +968,24 @@ export async function mountPopup(input: {
 
   render();
   return unsubscribe;
+}
+
+function readClosePolicy(input: {
+  readonly deleteOldTab: boolean;
+  readonly newTabPattern: string;
+  readonly newTabFlags: string;
+}): ClosePolicy {
+  if (!input.deleteOldTab) {
+    return { kind: "close-new" };
+  }
+  if (input.newTabPattern.length === 0) {
+    return { kind: "close-old" };
+  }
+  return {
+    kind: "close-old-when-new-tab-matches",
+    pattern: input.newTabPattern,
+    flags: input.newTabFlags,
+  };
 }
 
 function textField(input: {
