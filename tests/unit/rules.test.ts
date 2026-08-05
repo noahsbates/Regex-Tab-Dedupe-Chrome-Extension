@@ -3,14 +3,22 @@ import {
   classifyUrl,
   createRuleId,
   isEligibleUrl,
+  parseRuleDocument,
+  resolveCloseAction,
+  serializeRuleDocument,
   validateRuleSet,
+  type ClosePolicy,
   type RegexRule,
 } from "../../src/domain/rules";
 
 function rule(
   id: string,
   pattern: string,
-  options: { enabled?: boolean; flags?: string } = {},
+  options: {
+    closePolicy?: ClosePolicy;
+    enabled?: boolean;
+    flags?: string;
+  } = {},
 ): RegexRule {
   return {
     id: createRuleId(id),
@@ -18,6 +26,7 @@ function rule(
     pattern,
     flags: options.flags ?? "",
     enabled: options.enabled ?? true,
+    closePolicy: options.closePolicy ?? { kind: "close-new" },
   };
 }
 
@@ -122,6 +131,138 @@ describe("classifyUrl", () => {
 });
 
 describe("rule boundaries", () => {
+  it("defaults old stored rules to deleting the new tab", () => {
+    const parsed = parseRuleDocument({
+      schemaVersion: 1,
+      writeId: "legacy",
+      rules: [
+        {
+          id: "legacy-rule",
+          name: "Legacy",
+          pattern: "example",
+          flags: "",
+          enabled: true,
+        },
+      ],
+    });
+
+    expect(parsed).toMatchObject({
+      ok: true,
+      document: { rules: [{ closePolicy: { kind: "close-new" } }] },
+    });
+  });
+
+  it("parses legacy and conditional close-old policies", () => {
+    const parsed = parseRuleDocument({
+      schemaVersion: 1,
+      writeId: "policies",
+      rules: [
+        {
+          id: "always",
+          name: "Always",
+          pattern: "example",
+          flags: "",
+          enabled: true,
+          deleteOldTab: true,
+        },
+        {
+          id: "conditional",
+          name: "Conditional",
+          pattern: "example",
+          flags: "",
+          enabled: true,
+          deleteOldTab: false,
+          deleteOldTabWhenNewTabMatches: {
+            pattern: "#comment-\\d+$",
+            flags: "i",
+          },
+        },
+      ],
+    });
+
+    expect(parsed).toMatchObject({
+      ok: true,
+      document: {
+        rules: [
+          { closePolicy: { kind: "close-old" } },
+          {
+            closePolicy: {
+              kind: "close-old-when-new-tab-matches",
+              pattern: "#comment-\\d+$",
+              flags: "i",
+            },
+          },
+        ],
+      },
+    });
+  });
+
+  it("serializes conditional close-old as close-new for older builds", () => {
+    const conditional = rule("conditional", "example", {
+      closePolicy: {
+        kind: "close-old-when-new-tab-matches",
+        pattern: "#comment-\\d+$",
+        flags: "i",
+      },
+    });
+
+    expect(
+      serializeRuleDocument({
+        schemaVersion: 1,
+        writeId: "write",
+        rules: [conditional],
+      }),
+    ).toMatchObject({
+      rules: [
+        {
+          deleteOldTab: false,
+          deleteOldTabWhenNewTabMatches: {
+            pattern: "#comment-\\d+$",
+            flags: "i",
+          },
+        },
+      ],
+    });
+  });
+
+  it("uses a candidate-only regex to resolve the close direction", () => {
+    const policy: ClosePolicy = {
+      kind: "close-old-when-new-tab-matches",
+      pattern: "#comment-\\d+$",
+      flags: "",
+    };
+
+    expect(
+      resolveCloseAction({
+        policy,
+        candidateUrl: "https://example.com/docs#comment-12",
+      }),
+    ).toBe("close-old");
+    expect(
+      resolveCloseAction({
+        policy,
+        candidateUrl: "https://example.com/docs",
+      }),
+    ).toBe("close-new");
+  });
+
+  it("rejects malformed new-tab conditions", () => {
+    const result = validateRuleSet([
+      rule("broken-condition", "example", {
+        closePolicy: {
+          kind: "close-old-when-new-tab-matches",
+          pattern: "[",
+          flags: "",
+        },
+      }),
+    ]);
+
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [{ field: "newTabPattern" }],
+    });
+  });
+
   it.each([
     ["https://example.com", true],
     ["http://example.com/path", true],

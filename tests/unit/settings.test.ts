@@ -38,6 +38,7 @@ const rules: readonly RegexRule[] = [
     pattern: String.raw`^(https://example\.com/[^?#]+)`,
     flags: "i",
     enabled: true,
+    closePolicy: { kind: "close-new" },
   },
 ];
 
@@ -87,6 +88,54 @@ describe("settings repository", () => {
     expect(local.values.get(LOCAL_RULES_KEY)).toMatchObject({
       pendingSync: false,
       document: { writeId: "write-1" },
+    });
+  });
+
+  it("round-trips a conditional close-old policy through version-one storage", async () => {
+    const { settings, sync } = repository();
+    const baseRule = rules[0];
+    if (baseRule === undefined) {
+      throw new Error("Missing base rule");
+    }
+    const conditionalRules: readonly RegexRule[] = [
+      {
+        ...baseRule,
+        closePolicy: {
+          kind: "close-old-when-new-tab-matches",
+          pattern: "#comment-\\d+$",
+          flags: "i",
+        },
+      },
+    ];
+
+    await settings.save({
+      rules: conditionalRules,
+      expectedWriteId: "empty",
+    });
+
+    expect(sync.values.get(SYNC_RULES_KEY)).toMatchObject({
+      rules: [
+        {
+          deleteOldTab: false,
+          deleteOldTabWhenNewTabMatches: {
+            pattern: "#comment-\\d+$",
+            flags: "i",
+          },
+        },
+      ],
+    });
+    await expect(settings.load()).resolves.toMatchObject({
+      document: {
+        rules: [
+          {
+            closePolicy: {
+              kind: "close-old-when-new-tab-matches",
+              pattern: "#comment-\\d+$",
+              flags: "i",
+            },
+          },
+        ],
+      },
     });
   });
 

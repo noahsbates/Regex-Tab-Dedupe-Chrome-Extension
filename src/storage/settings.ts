@@ -1,6 +1,7 @@
 import {
   createEmptyRuleDocument,
   parseRuleDocument,
+  serializeRuleDocument,
   validateRuleSet,
   type RegexRule,
   type RuleDocument,
@@ -116,7 +117,10 @@ export function createSettingsRepository(input: {
         writeId: input.createWriteId(),
         rules: validation.rules,
       };
-      if (storedBytes(SYNC_RULES_KEY, document) > input.syncQuotaBytes) {
+      const serializedDocument = serializeRuleDocument(document);
+      if (
+        storedBytes(SYNC_RULES_KEY, serializedDocument) > input.syncQuotaBytes
+      ) {
         return {
           kind: "failed",
           reasons: [
@@ -125,7 +129,7 @@ export function createSettingsRepository(input: {
         };
       }
 
-      const pendingEnvelope = envelope(document, true);
+      const pendingEnvelope = serializeEnvelope(document, true);
       try {
         await input.local.setValue(LOCAL_RULES_KEY, pendingEnvelope);
       } catch (error) {
@@ -136,11 +140,11 @@ export function createSettingsRepository(input: {
       }
 
       try {
-        await input.sync.setValue(SYNC_RULES_KEY, document);
+        await input.sync.setValue(SYNC_RULES_KEY, serializedDocument);
         try {
           await input.local.setValue(
             LOCAL_RULES_KEY,
-            envelope(document, false),
+            serializeEnvelope(document, false),
           );
         } catch {
           // Sync is authoritative. A later load recognizes the same document.
@@ -164,7 +168,10 @@ export function createSettingsRepository(input: {
         return { kind: "synced", document: loaded.document };
       }
       if (
-        storedBytes(SYNC_RULES_KEY, localEnvelope.document) >
+        storedBytes(
+          SYNC_RULES_KEY,
+          serializeRuleDocument(localEnvelope.document),
+        ) >
         input.syncQuotaBytes
       ) {
         return {
@@ -176,10 +183,13 @@ export function createSettingsRepository(input: {
       }
 
       try {
-        await input.sync.setValue(SYNC_RULES_KEY, localEnvelope.document);
+        await input.sync.setValue(
+          SYNC_RULES_KEY,
+          serializeRuleDocument(localEnvelope.document),
+        );
         await input.local.setValue(
           LOCAL_RULES_KEY,
-          envelope(localEnvelope.document, false),
+          serializeEnvelope(localEnvelope.document, false),
         );
         return { kind: "synced", document: localEnvelope.document };
       } catch (error) {
@@ -197,11 +207,15 @@ export function storedBytes(key: string, value: unknown): number {
   return new TextEncoder().encode(JSON.stringify({ [key]: value })).byteLength;
 }
 
-function envelope(
+function serializeEnvelope(
   document: RuleDocument,
   pendingSync: boolean,
-): LocalRuleEnvelope {
-  return { schemaVersion: 1, pendingSync, document };
+): unknown {
+  return {
+    schemaVersion: 1,
+    pendingSync,
+    document: serializeRuleDocument(document),
+  };
 }
 
 function parseOptionalDocument(

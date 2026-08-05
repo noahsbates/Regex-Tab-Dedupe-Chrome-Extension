@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Regex Tab Dedupe",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Close newly opened duplicate tabs using your own ordered regular expressions.",
   "minimum_chrome_version": "102",
   "permissions": ["alarms", "storage", "tabs", "webNavigation"],

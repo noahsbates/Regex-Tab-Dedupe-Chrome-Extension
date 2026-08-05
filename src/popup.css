@@ -125,6 +125,21 @@ button.danger {
   background: var(--paper);
 }
 
+.popup-shell.editor-shell {
+  display: block;
+  border: 2px dashed var(--green-dark);
+  background: #e8eadf;
+}
+
+.editor-content {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 10px;
+  scrollbar-color: #8c9688 transparent;
+  scrollbar-width: thin;
+}
+
 .app-header {
   display: flex;
   min-height: 52px;
@@ -430,6 +445,21 @@ button.view-tab.active::after {
   text-align: center;
 }
 
+.advanced-rule-badge {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  border: 1px solid #81917e;
+  border-radius: 1px;
+  color: #3d563f;
+  background: #dfe8dc;
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.35px;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .rule-card h3,
 .preset-card h3 {
   margin: 0;
@@ -554,8 +584,12 @@ button.quiet-danger:hover:not(:disabled) {
 .rule-editor {
   display: grid;
   gap: 8px;
-  padding: 10px;
-  border-color: #71806f;
+  min-height: 100%;
+  align-content: start;
+  padding: 0 10px 10px;
+  border: 0;
+  background: var(--surface);
+  box-shadow: none;
 }
 
 .editor-title {
@@ -563,9 +597,20 @@ button.quiet-danger:hover:not(:disabled) {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  margin: 0 -10px;
+  padding: 8px 10px;
+  border-bottom: 2px dashed var(--green-dark);
+  background: #dde2d7;
 }
 
-.editor-title span {
+.editor-title-copy {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-title-copy span {
   padding: 2px 5px;
   border: 1px solid #adb4a8;
   border-radius: 1px;
@@ -573,6 +618,17 @@ button.quiet-danger:hover:not(:disabled) {
   background: #e4e9e1;
   font-size: 9px;
   font-weight: 700;
+}
+
+button.editor-close {
+  width: 28px;
+  min-height: 28px;
+  flex: 0 0 auto;
+  padding: 0;
+  border-color: #6d786b;
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1;
 }
 
 .field {
@@ -623,6 +679,67 @@ button.quiet-danger:hover:not(:disabled) {
 
 .checkbox-field input {
   accent-color: var(--green);
+}
+
+.advanced-rules {
+  display: grid;
+  gap: 8px;
+}
+
+button.advanced-rules-toggle {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  border: 0;
+  border-radius: 0;
+  color: #4c5b4d;
+  background: transparent;
+  box-shadow: none;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.25px;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+button.advanced-rules-toggle::after {
+  height: 1px;
+  flex: 1;
+  background: #aeb5a9;
+  content: "";
+}
+
+button.advanced-rules-toggle:hover:not(:disabled) {
+  color: var(--green-dark);
+  background: transparent;
+}
+
+.advanced-rules-content {
+  display: grid;
+  gap: 8px;
+}
+
+.advanced-rules-content[hidden] {
+  display: none;
+}
+
+.new-tab-condition {
+  display: grid;
+  gap: 7px;
+  padding: 2px 0 0 18px;
+}
+
+.new-tab-condition.disabled {
+  opacity: 0.58;
+}
+
+.new-tab-condition > p {
+  margin: 0;
+  color: #596456;
+  font-size: 9.5px;
+  line-height: 1.35;
 }
 
 .form-errors {
@@ -724,6 +841,17 @@ button.filter-button[aria-pressed="true"] {
   font-size: 10px;
 }
 
+.preset-card.installed {
+  order: 1;
+  opacity: 0.5;
+  filter: grayscale(0.55);
+}
+
+.preset-card.installed .use-preset {
+  color: #596158;
+  background: #d9dbd4;
+}
+
 .category-badge {
   flex: 0 0 auto;
   padding: 2px 5px;
@@ -741,6 +869,12 @@ button.filter-button[aria-pressed="true"] {
   background: #dfe8dc;
 }
 
+.category-github {
+  color: #343a46;
+  border-color: #7e8799;
+  background: #e0e4ec;
+}
+
 .category-everyday {
   color: #52604e;
   border-color: #929b8d;
@@ -756,24 +890,32 @@ button.filter-button[aria-pressed="true"] {
 .ai-prompt-banner {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px 10px;
-  padding: 8px;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px;
   border: 1px solid #798b77;
   border-radius: 1px;
   background: #e2e8de;
+}
+
+.ai-prompt-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
 }
 
 .ai-prompt-copy strong {
   color: #334d38;
   font-family: Georgia, "Times New Roman", serif;
   font-size: 11px;
+  line-height: 1.2;
 }
 
 .ai-prompt-copy p {
-  margin: 2px 0 0;
+  margin: 0;
   color: #596559;
   font-size: 9.5px;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 .copy-prompt-button {
@@ -787,7 +929,6 @@ button.filter-button[aria-pressed="true"] {
 }
 
 .copy-feedback {
-  min-height: 12px;
   grid-column: 1 / -1;
   color: #435d47;
   font-size: 9px;
@@ -795,7 +936,7 @@ button.filter-button[aria-pressed="true"] {
 }
 
 .copy-feedback:empty {
-  visibility: hidden;
+  display: none;
 }
 
 .support-footer {

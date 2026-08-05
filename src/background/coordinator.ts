@@ -1,12 +1,9 @@
 import {
   decideCandidate,
+  decideDuplicatePair,
   type TabSnapshot,
 } from "../domain/reconcile";
-import {
-  classifyUrl,
-  duplicateKeysEqual,
-  isEligibleUrl,
-} from "../domain/rules";
+import { isEligibleUrl, type CloseAction } from "../domain/rules";
 import type { SettingsRepository } from "../storage/settings";
 import type { SessionRepository, SessionState } from "./session";
 
@@ -171,40 +168,99 @@ async function reconcile(input: {
       continue;
     }
 
-    let closed = false;
-    for (const keeper of decision.keepers) {
-      try {
-        const [freshCandidate, freshKeeper] = await Promise.all([
-          input.browser.getTab(candidate.tabId),
-          input.browser.getTab(keeper.id),
-        ]);
-        if (freshCandidate === undefined) {
+    if (decision.kind === "close-new") {
+      let closed = false;
+      for (const keeper of decision.keepers) {
+        try {
+          const [freshCandidate, freshKeeper] = await Promise.all([
+            input.browser.getTab(candidate.tabId),
+            input.browser.getTab(keeper.id),
+          ]);
+          if (freshCandidate === undefined) {
+            closed = true;
+            break;
+          }
+          if (
+            freshKeeper === undefined ||
+            !pairStillSupportsAction({
+              candidate: candidateSnapshot(candidate, freshCandidate),
+              existing: freshKeeper,
+              rules: loaded.document.rules,
+              expected: "close-new",
+            })
+          ) {
+            continue;
+          }
+          await input.browser.focusTab(freshKeeper);
+          await input.browser.closeTab(freshCandidate.id);
           closed = true;
           break;
-        }
-        if (
-          freshKeeper === undefined ||
-          !tabsStillMatch({
-            candidate: candidateSnapshot(candidate, freshCandidate),
-            keeper: freshKeeper,
-            rules: loaded.document.rules,
-          })
-        ) {
+        } catch {
           continue;
         }
-        await input.browser.focusTab(freshKeeper);
-        await input.browser.closeTab(freshCandidate.id);
-        closed = true;
-        break;
-      } catch {
-        continue;
       }
+
+      if (closed) {
+        state = removeRecord(state, candidate.tabId, true);
+        tabs = tabs.filter((tab) => tab.id !== candidate.tabId);
+      } else {
+        retryNeeded = true;
+      }
+      continue;
     }
 
-    if (closed) {
+    const freshCandidate = await input.browser.getTab(candidate.tabId);
+    if (freshCandidate === undefined) {
       state = removeRecord(state, candidate.tabId, true);
       tabs = tabs.filter((tab) => tab.id !== candidate.tabId);
-    } else {
+      continue;
+    }
+
+    let focusedCandidate = false;
+    let matchedDuplicate = false;
+    let allClosed = true;
+    let staleDecision = false;
+    const closedTabIds = new Set<number>();
+    for (const duplicate of decision.duplicates) {
+      try {
+        const freshDuplicate = await input.browser.getTab(duplicate.id);
+        if (freshDuplicate === undefined) {
+          continue;
+        }
+        if (
+          !pairStillSupportsAction({
+            candidate: candidateSnapshot(candidate, freshCandidate),
+            existing: freshDuplicate,
+            rules: loaded.document.rules,
+            expected: "close-old",
+          })
+        ) {
+          staleDecision = true;
+          continue;
+        }
+        matchedDuplicate = true;
+        if (!focusedCandidate) {
+          await input.browser.focusTab(freshCandidate);
+          focusedCandidate = true;
+        }
+        await input.browser.closeTab(freshDuplicate.id);
+        closedTabIds.add(freshDuplicate.id);
+      } catch {
+        allClosed = false;
+      }
+    }
+    tabs = tabs.filter((tab) => !closedTabIds.has(tab.id));
+    for (const closedTabId of closedTabIds) {
+      state = removeRecord(state, closedTabId, true);
+    }
+
+    if (staleDecision) {
+      retryNeeded = true;
+    } else if (matchedDuplicate && allClosed) {
+      state = removeRecord(state, candidate.tabId, false);
+    } else if (!matchedDuplicate && freshCandidate.status === "complete") {
+      state = removeRecord(state, candidate.tabId, false);
+    } else if (!allClosed) {
       retryNeeded = true;
     }
   }
@@ -237,28 +293,21 @@ function firstEligibleUrl(
   return isEligibleUrl(committedUrl) ? committedUrl : null;
 }
 
-function tabsStillMatch(input: {
+function pairStillSupportsAction(input: {
   readonly candidate: TabSnapshot;
-  readonly keeper: TabSnapshot;
+  readonly existing: TabSnapshot;
   readonly rules: Awaited<ReturnType<SettingsRepository["load"]>>["document"]["rules"];
+  readonly expected: CloseAction;
 }): boolean {
-  if (
-    input.candidate.incognito !== input.keeper.incognito ||
-    !isEligibleUrl(input.candidate.url) ||
-    !isEligibleUrl(input.keeper.url)
-  ) {
+  if (input.candidate.incognito !== input.existing.incognito) {
     return false;
   }
-  const candidate = classifyUrl({
-    url: input.candidate.url,
+  const decision = decideDuplicatePair({
+    candidateUrl: input.candidate.url,
+    existingUrl: input.existing.url,
     rules: input.rules,
   });
-  const keeper = classifyUrl({ url: input.keeper.url, rules: input.rules });
-  return (
-    candidate.kind === "identified" &&
-    keeper.kind === "identified" &&
-    duplicateKeysEqual(candidate.key, keeper.key)
-  );
+  return decision.kind === "duplicate" && decision.action === input.expected;
 }
 
 function removeRecord(

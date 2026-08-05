@@ -8,6 +8,7 @@ import {
 } from "../../src/domain/rules";
 import { mountPopup } from "../../src/popup";
 import { createPopupLinks } from "../../src/popup-links";
+import { RULE_PRESETS } from "../../src/presets";
 import type {
   LoadedSettings,
   SaveResult,
@@ -123,6 +124,7 @@ describe("popup", () => {
     expect(document.body.textContent).toContain("Same YouTube video");
     expect(document.body.textContent).toContain("Same Google document");
     expect(document.body.textContent).toContain("Same Jira issue");
+    expect(document.body.textContent).toContain("Switch to new GitHub comment");
     expect(document.body.textContent).not.toContain("—");
   });
 
@@ -135,9 +137,11 @@ describe("popup", () => {
     });
     button("PRESETS").click();
 
-    button("Developer").click();
-    expect(button("Developer").getAttribute("aria-pressed")).toBe("true");
+    button("GitHub").click();
+    expect(button("GitHub").getAttribute("aria-pressed")).toBe("true");
     expect(document.body.textContent).toContain("Same GitHub pull request");
+    expect(document.body.textContent).toContain("Same GitHub issue");
+    expect(document.body.textContent).toContain("Switch to new GitHub comment");
     expect(document.body.textContent).not.toContain("Same YouTube video");
     expect(document.body.textContent).not.toContain("Same Google document");
 
@@ -244,7 +248,136 @@ describe("popup", () => {
     ).toBe("Copy AI Prompt to help generate rules");
   });
 
-  it("prefills a preset, returns to Rules, and saves an enabled rule", async () => {
+  it("copies an editing prompt with the regex currently in the form", async () => {
+    let copiedText = "";
+    const settings = new FakeSettings();
+    settings.loaded = {
+      source: "sync",
+      diagnostics: [],
+      document: {
+        schemaVersion: 1,
+        writeId: "loaded",
+        rules: [
+          {
+            id: createRuleId("docs"),
+            name: "Docs",
+            pattern: String.raw`^https://example\.com/(docs)`,
+            flags: "i",
+            enabled: true,
+            closePolicy: {
+              kind: "close-old-when-new-tab-matches",
+              pattern: String.raw`#comment-\d+$`,
+              flags: "i",
+            },
+          },
+        ],
+      },
+    };
+    await mountPopup({
+      root: document.querySelector("#app"),
+      settings,
+      createId: () => "new-rule",
+      subscribe: () => () => undefined,
+      copyText: async (text) => {
+        copiedText = text;
+      },
+    });
+
+    expect(
+      document.querySelector(".advanced-rule-badge")?.textContent,
+    ).toBe("+ Advanced rules");
+    button("Edit Docs").click();
+    expect(button("− Advanced rules").getAttribute("aria-expanded")).toBe(
+      "true",
+    );
+    expect(document.querySelector(".new-tab-condition")?.hasAttribute("hidden"))
+      .toBe(false);
+    input("pattern").value = String.raw`^https://example\.com/(guides)`;
+    button("Copy AI Prompt to help edit this rule").click();
+    await settle();
+
+    expect(document.body.textContent).toContain("Want help editing this regex?");
+    expect(copiedText).toContain(
+      String.raw`Current regex: /^https://example\.com/(guides)/i`,
+    );
+    expect(copiedText).toContain(
+      String.raw`new tab matches this condition: /#comment-\d+$/i`,
+    );
+    expect(copiedText).toContain("Describe what you want to change here:");
+  });
+
+  it("defaults to deleting the new tab and saves the checked old-tab option", async () => {
+    const settings = new FakeSettings();
+    await mountPopup({
+      root: document.querySelector("#app"),
+      settings,
+      createId: () => "replace-old",
+      subscribe: () => () => undefined,
+    });
+
+    button("Add rule").click();
+    const deleteOldTab = input("deleteOldTab");
+    if (!(deleteOldTab instanceof HTMLInputElement)) {
+      throw new Error("Old-tab option is not a checkbox");
+    }
+    expect(deleteOldTab.checked).toBe(false);
+    input("name").value = "Keep newest";
+    input("pattern").value = String.raw`^(https://example\.com/docs)`;
+    deleteOldTab.click();
+    button("Save rule").click();
+    await settle();
+
+    expect(settings.saves[0]?.rules[0]?.closePolicy).toEqual({
+      kind: "close-old",
+    });
+  });
+
+  it("uses an inline Advanced rules divider for close-old", async () => {
+    const settings = new FakeSettings();
+    await mountPopup({
+      root: document.querySelector("#app"),
+      settings,
+      createId: () => "conditional-rule",
+      subscribe: () => () => undefined,
+    });
+
+    button("Add rule").click();
+    expect(document.body.textContent).not.toContain("Enable this rule");
+    expect(document.querySelector("details")).toBeNull();
+    expect(button("+ Advanced rules").getAttribute("aria-expanded")).toBe(
+      "false",
+    );
+    expect(
+      document.querySelector(".advanced-rules-content")?.hasAttribute("hidden"),
+    ).toBe(true);
+    button("+ Advanced rules").click();
+    expect(button("− Advanced rules").getAttribute("aria-expanded")).toBe(
+      "true",
+    );
+    expect(document.querySelector(".new-tab-condition")?.hasAttribute("hidden"))
+      .toBe(false);
+    const deleteOldTab = input("deleteOldTab");
+    if (!(deleteOldTab instanceof HTMLInputElement)) {
+      throw new Error("Old-tab option is not a checkbox");
+    }
+    expect(input("newTabPattern").hasAttribute("disabled")).toBe(true);
+    deleteOldTab.click();
+    expect(input("newTabPattern").hasAttribute("disabled")).toBe(false);
+    input("name").value = "Conditional";
+    input("pattern").value = String.raw`^(https://example\.com/docs)`;
+    input("newTabPattern").value = String.raw`#comment-\d+$`;
+    input("newTabFlags").value = "i";
+    button("Save rule").click();
+    await settle();
+
+    expect(settings.saves[0]?.rules[0]?.closePolicy).toEqual({
+      kind: "close-old-when-new-tab-matches",
+      pattern: String.raw`#comment-\d+$`,
+      flags: "i",
+    });
+  });
+
+  it("applies a preset immediately and keeps the preset list open", async () => {
     const settings = new FakeSettings();
     await mountPopup({
       root: document.querySelector("#app"),
@@ -254,10 +387,7 @@ describe("popup", () => {
     });
 
     button("PRESETS").click();
-    button("Use Same GitHub pull request preset").click();
-    expect(button("RULES").getAttribute("aria-selected")).toBe("true");
-    expect(input("pattern").value).toContain("github\\.com");
-    button("Save rule").click();
+    button("Apply Same GitHub pull request preset").click();
     await settle();
 
     expect(settings.saves).toHaveLength(1);
@@ -265,8 +395,58 @@ describe("popup", () => {
       id: "github-rule",
       name: "Same GitHub pull request",
       enabled: true,
+      closePolicy: { kind: "close-new" },
     });
-    expect(document.querySelector(".sync-badge")).toBeNull();
+    expect(button("PRESETS").getAttribute("aria-selected")).toBe("true");
+    expect(button("Same GitHub pull request preset already added").disabled).toBe(
+      true,
+    );
+    button("RULES").click();
+    expect(document.querySelector(".advanced-rule-badge")).toBeNull();
+  });
+
+  it("grays installed presets and moves them below available presets", async () => {
+    const settings = new FakeSettings();
+    const youtube = RULE_PRESETS.find(
+      (preset) => preset.name === "Same YouTube video",
+    );
+    if (youtube === undefined) {
+      throw new Error("Missing YouTube preset");
+    }
+    settings.loaded = {
+      source: "sync",
+      diagnostics: [],
+      document: {
+        schemaVersion: 1,
+        writeId: "loaded",
+        rules: [
+          {
+            id: createRuleId("youtube"),
+            ...youtube,
+            enabled: true,
+          },
+        ],
+      },
+    };
+    await mountPopup({
+      root: document.querySelector("#app"),
+      settings,
+      createId: () => "new-rule",
+      subscribe: () => () => undefined,
+    });
+
+    button("PRESETS").click();
+
+    const cards = [
+      ...document.querySelectorAll<HTMLElement>(".preset-card"),
+    ];
+    expect(cards.at(-1)?.querySelector("h3")?.textContent).toBe(
+      "Same YouTube video",
+    );
+    expect(cards.at(-1)?.classList.contains("installed")).toBe(true);
+    expect(button("Same YouTube video preset already added").disabled).toBe(
+      true,
+    );
   });
 
   it("leads the empty state with a dark preset action and a plain fallback", async () => {
@@ -303,12 +483,12 @@ describe("popup", () => {
 
     button("Write your own").click();
 
-    expect(button("RULES").getAttribute("aria-selected")).toBe("true");
+    expect(document.querySelector(".view-tabs")).toBeNull();
     expect(document.body.textContent).toContain("Add rule");
     expect(input("pattern").value).toBe("");
   });
 
-  it("discards an open draft when Presets opens so presets stay usable", async () => {
+  it("shows only the dashed editor until its top-right close button is used", async () => {
     await mountPopup({
       root: document.querySelector("#app"),
       settings: new FakeSettings(),
@@ -317,23 +497,18 @@ describe("popup", () => {
     });
 
     button("Write your own").click();
-    input("pattern").value = "^https://example\\.com/(.*)$";
-    input("name").value = "Half-written rule";
+    expect(document.querySelector(".editor-shell")).not.toBeNull();
+    expect(document.querySelector(".rule-editor")).not.toBeNull();
+    expect(document.querySelector(".app-header")).toBeNull();
+    expect(document.querySelector(".view-tabs")).toBeNull();
+    expect(document.querySelector(".rule-list")).toBeNull();
+    expect(document.querySelector(".support-footer")).toBeNull();
 
-    button("PRESETS").click();
+    button("Close rule editor").click();
 
-    // Every preset stayed clickable instead of graying out behind the draft.
-    const presetButtons = [
-      ...document.querySelectorAll<HTMLButtonElement>("button.use-preset"),
-    ];
-    expect(presetButtons.length).toBeGreaterThan(0);
-    expect(presetButtons.every((preset) => !preset.disabled)).toBe(true);
-
-    button("Use Same YouTube video preset").click();
-
-    // The discarded draft did not bleed into the preset draft.
-    expect(input("name").value).toBe("Same YouTube video");
-    expect(input("pattern").value).not.toContain("example");
+    expect(document.querySelector(".editor-shell")).toBeNull();
+    expect(document.querySelector(".app-header")).not.toBeNull();
+    expect(document.body.textContent).toContain("No rules yet");
   });
 
   it("keeps the editor open when every save fails", async () => {
@@ -359,7 +534,7 @@ describe("popup", () => {
     expect(input("name").value).toBe("Docs");
   });
 
-  it("keeps rule mutations disabled while a draft is open", async () => {
+  it("keeps rule mutations out of the dedicated editor", async () => {
     const settings = new FakeSettings();
     settings.loaded = {
       source: "sync",
@@ -374,6 +549,7 @@ describe("popup", () => {
             pattern: "one",
             flags: "",
             enabled: true,
+            closePolicy: { kind: "close-new" },
           },
           {
             id: createRuleId("two"),
@@ -381,6 +557,7 @@ describe("popup", () => {
             pattern: "two",
             flags: "",
             enabled: true,
+            closePolicy: { kind: "close-new" },
           },
         ],
       },
@@ -394,12 +571,9 @@ describe("popup", () => {
 
     button("Add rule").click();
 
-    expect(
-      document.querySelector<HTMLInputElement>('[aria-label="Disable One"]')
-        ?.disabled,
-    ).toBe(true);
-    expect(button("Move Two up").disabled).toBe(true);
-    expect(button("Delete One").disabled).toBe(true);
+    expect(document.querySelector('[aria-label="Disable One"]')).toBeNull();
+    expect(document.body.textContent).not.toContain("One");
+    expect(document.body.textContent).not.toContain("Two");
   });
 
   it("shows retry failures without leaving the popup disabled", async () => {
@@ -462,6 +636,7 @@ describe("popup", () => {
             pattern: "one",
             flags: "",
             enabled: true,
+            closePolicy: { kind: "close-new" },
           },
           {
             id: createRuleId("two"),
@@ -469,6 +644,7 @@ describe("popup", () => {
             pattern: "two",
             flags: "",
             enabled: true,
+            closePolicy: { kind: "close-new" },
           },
         ],
       },
